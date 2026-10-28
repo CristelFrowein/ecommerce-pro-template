@@ -1,0 +1,451 @@
+/* ========================================
+   ORDERS ADMIN
+======================================== */
+
+.orders-admin {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+
+/* ========================================
+   TITLE
+======================================== */
+
+.orders-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.orders-title h2 {
+  margin: 0;
+  color: var(--color-primary-dark);
+  font-size: 26px;
+}
+
+.orders-title p {
+  margin: 4px 0 0;
+  color: var(--color-text-light);
+  font-size: 14px;
+}
+
+
+/* ========================================
+   BACK BUTTON
+======================================== */
+
+.orders-back {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.orders-back:hover {
+  background: var(--color-primary-light);
+  color: white;
+  border-color: var(--color-primary-light);
+}
+
+
+/* ========================================
+   ORDERS LIST
+======================================== */
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+
+/* ========================================
+   ORDER CARD
+======================================== */
+
+.order-card {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.order-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-light);
+}
+
+
+/* ========================================
+   HEADER
+======================================== */
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+
+  padding: var(--spacing-lg);
+
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+
+/* ========================================
+   CUSTOMER
+======================================== */
+
+.order-customer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.customer-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 42px;
+  height: 42px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: var(--color-primary-light);
+  color: white;
+
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.order-customer div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.order-customer strong {
+  color: var(--color-primary-dark);
+  font-size: 15px;
+}
+
+.order-customer span {
+  color: var(--color-text-light);
+  font-size: 13px;
+}
+
+
+/* ========================================
+   STATUS
+======================================== */
+
+.order-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: fit-content;
+
+  padding: 6px 11px;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+
+/* Pendiente */
+
+.status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+
+/* Completado */
+
+.status-completed {
+  background: #dff3e4;
+  color: #2f6b3f;
+}
+
+
+/* Cancelado */
+
+.status-cancelled {
+  background: #f8d7da;
+  color: #842029;
+}
+
+
+/* ========================================
+   CONTENT
+======================================== */
+
+.order-content {
+  padding: var(--spacing-lg);
+}
+
+
+/* ========================================
+   SECTION TITLE
+======================================== */
+
+.order-section-title {
+  margin-bottom: 10px;
+
+  color: var(--color-text-light);
+
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+
+/* ========================================
+   ITEMS
+======================================== */
+
+.order-items {
+  display: flex;
+  flex-direction: column;
+
+  gap: 0;
+
+  margin: 0;
+  padding: 0;
+
+  list-style: none;
+}
+
+.order-items li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: var(--spacing-md);
+
+  padding: 9px 0;
+
+  border-bottom: 1px solid var(--color-border);
+
+  font-size: 14px;
+}
+
+.order-items li:last-child {
+  border-bottom: none;
+}
+
+.item-name {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.item-quantity {
+  flex-shrink: 0;
+
+  color: var(--color-text-light);
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+/* ========================================
+   FOOTER
+======================================== */
+
+.order-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  gap: var(--spacing-md);
+
+  padding: var(--spacing-md) var(--spacing-lg);
+
+  background: #fafafa;
+
+  border-top: 1px solid var(--color-border);
+}
+
+
+/* ========================================
+   TOTAL
+======================================== */
+
+.order-total {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.order-total span {
+  color: var(--color-text-light);
+
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.order-total strong {
+  color: var(--color-primary-dark);
+  font-size: 19px;
+}
+
+
+/* ========================================
+   ACTIONS
+======================================== */
+
+.order-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+
+/* ========================================
+   COMPLETE BUTTON
+======================================== */
+
+.complete-button {
+  border: none;
+
+  padding: 10px 15px;
+
+  border-radius: var(--radius-sm);
+
+  background: var(--color-primary);
+  color: white;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.complete-button:hover {
+  background: var(--color-primary-dark);
+  transform: translateY(-1px);
+}
+
+.complete-button:active {
+  transform: translateY(0);
+}
+
+
+/* ========================================
+   EMPTY STATE
+======================================== */
+
+.orders-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 280px;
+
+  padding: var(--spacing-xl);
+
+  background: #ffffff;
+
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+
+  text-align: center;
+}
+
+.orders-empty span {
+  margin-bottom: 10px;
+  font-size: 40px;
+}
+
+.orders-empty h3 {
+  margin: 0;
+
+  color: var(--color-primary-dark);
+
+  font-size: 17px;
+}
+
+.orders-empty p {
+  margin: 6px 0 0;
+
+  color: var(--color-text-light);
+
+  font-size: 14px;
+}
+
+
+/* ========================================
+   RESPONSIVE
+======================================== */
+
+@media (max-width: 600px) {
+
+  .orders-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .orders-back {
+    width: 100%;
+  }
+
+  .order-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .order-status {
+    align-self: flex-start;
+  }
+
+  .order-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .order-actions {
+    width: 100%;
+  }
+
+  .complete-button {
+    width: 100%;
+  }
+
+  .order-card {
+    border-radius: var(--radius-sm);
+  }
+
+}

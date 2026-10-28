@@ -1,0 +1,109 @@
+/* CONTENEDOR GENERAL */
+.admin-container{
+  padding:40px 0;
+  display:flex;
+  flex-direction:column;
+  gap:30px;
+}
+
+/* TITULOS */
+.admin-title{
+  font-size:28px;
+  font-weight:700;
+  color:var(--color-text);
+}
+
+/* MENU PRINCIPAL */
+.admin-menu{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+  gap:20px;
+}
+
+/* BOTONES GRANDES */
+.admin-card-btn{
+  padding:25px;
+  border:none;
+  border-radius:var(--radius-md);
+  background:var(--color-surface);
+  box-shadow:var(--shadow-sm);
+  cursor:pointer;
+
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+
+  transition:.25s;
+}
+
+.admin-card-btn:hover{
+  transform:translateY(-4px);
+  box-shadow:var(--shadow-md);
+  background:var(--color-primary-light);
+  color:white;
+}
+
+/* BOTON VOLVER */
+.admin-back{
+  align-self:flex-start;
+
+  border:none;
+  background:transparent;
+
+  color:var(--color-primary);
+  cursor:pointer;
+
+  font-weight:600;
+  margin-bottom:10px;
+}
+
+/* CARDS GENERALES */
+.admin-card{
+  background:var(--color-surface);
+  border-radius:var(--radius-md);
+  padding:20px;
+  box-shadow:var(--shadow-sm);
+
+  transition:.2s;
+}
+
+.admin-card:hover{
+  box-shadow:var(--shadow-md);
+}
+
+/* INPUTS */
+.admin-input{
+  padding:12px;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--color-border);
+  font-family:var(--font-main);
+}
+
+/* BOTONES */
+.admin-btn{
+  padding:12px;
+  border:none;
+  border-radius:var(--radius-sm);
+  background:var(--color-primary);
+  color:white;
+  cursor:pointer;
+  font-weight:600;
+
+  transition:.2s;
+}
+
+.admin-btn:hover{
+  background:var(--color-primary-dark);
+}
+
+/* BOTON PELIGRO */
+.admin-btn-danger{
+  background:transparent;
+  color:var(--color-danger);
+  border:1px solid var(--color-danger);
+}
+
+.admin-btn-danger:hover{
+  background:var(--color-danger);
+  color:white;
+}

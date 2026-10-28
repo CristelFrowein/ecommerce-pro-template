@@ -1,0 +1,207 @@
+/* ========================================
+   LOGIN ADMIN
+======================================== */
+
+.admin-login {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  background: var(--color-bg);
+}
+
+
+/* ========================================
+   TARJETA
+======================================== */
+
+.admin-login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+
+/* ========================================
+   HEADER
+======================================== */
+
+.admin-login-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.admin-login-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: var(--color-primary);
+  color: white;
+
+  border-radius: 50%;
+  font-size: 28px;
+
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-login-header h2 {
+  margin-bottom: 8px;
+
+  color: var(--color-primary-dark);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.admin-login-header p {
+  color: var(--color-text-light);
+  font-size: 14px;
+}
+
+
+/* ========================================
+   FORMULARIO
+======================================== */
+
+.admin-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+
+/* ========================================
+   INPUT
+======================================== */
+
+.admin-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-input-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.admin-input-group input {
+  width: 100%;
+  height: 48px;
+
+  padding: 0 14px;
+
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  background: var(--color-bg);
+  color: var(--color-text);
+
+  font-family: var(--font-main);
+  font-size: 15px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.admin-input-group input::placeholder {
+  color: var(--color-text-light);
+}
+
+.admin-input-group input:focus {
+  border-color: var(--color-primary);
+
+  background: #ffffff;
+
+  box-shadow: 0 0 0 3px rgba(107, 112, 92, 0.15);
+}
+
+
+/* ========================================
+   ERROR
+======================================== */
+
+.admin-login-error {
+  margin-top: -4px;
+
+  color: var(--color-danger);
+  font-size: 13px;
+  font-weight: 500;
+
+  text-align: left;
+}
+
+
+/* ========================================
+   BOTÓN
+======================================== */
+
+.admin-login-form button {
+  width: 100%;
+  height: 48px;
+
+  margin-top: 4px;
+
+  border: none;
+  border-radius: var(--radius-md);
+
+  background: var(--color-primary);
+  color: #ffffff;
+
+  font-family: var(--font-main);
+  font-size: 15px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+.admin-login-form button:hover {
+  background: var(--color-primary-dark);
+
+  box-shadow: var(--shadow-sm);
+}
+
+.admin-login-form button:active {
+  transform: translateY(1px);
+}
+
+
+/* ========================================
+   RESPONSIVE
+======================================== */
+
+@media (max-width: 480px) {
+
+  .admin-login {
+    padding: var(--spacing-md);
+  }
+
+  .admin-login-card {
+    padding: 30px 24px;
+  }
+
+  .admin-login-header h2 {
+    font-size: 24px;
+  }
+
+}

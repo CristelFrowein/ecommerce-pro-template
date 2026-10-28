@@ -1,0 +1,61 @@
+.category-page{
+
+padding:40px 0;
+
+}
+
+.category-title{
+
+margin-bottom:30px;
+
+text-transform:capitalize;
+
+}
+
+.products-grid{
+
+display:grid;
+
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+
+gap:20px;
+
+}
+
+.skeleton-card{
+  height: 340px;
+
+  border-radius: var(--radius-md);
+
+  background: linear-gradient(
+    90deg,
+    #eeeeee 25%,
+    #f5f5f5 37%,
+    #eeeeee 63%
+  );
+
+  background-size: 400% 100%;
+
+  animation: skeleton-loading 1.4s ease infinite;
+}
+
+@keyframes skeleton-loading{
+
+  0%{
+    background-position: 100% 0;
+  }
+
+  100%{
+    background-position: -100% 0;
+  }
+
+}
+
+
+.no-products{
+  grid-column:1/-1;
+  text-align:center;
+  padding:40px 0;
+  color:#777;
+  font-size:18px;
+}
