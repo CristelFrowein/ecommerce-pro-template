@@ -1,83 +1,71 @@
 import { db } from "./firebase"
 
 import {
+  addDoc,
   collection,
-  getDocs,
-  query,
-  where,
+  deleteDoc,
   doc,
   getDoc,
-  addDoc,
+  getDocs,
+  query,
   updateDoc,
-  deleteDoc
+  where
 } from "firebase/firestore"
 
-export async function getProducts(){
-
-  const ref = collection(db, "products")
-
-  const snapshot = await getDocs(ref)
-
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
+function mapProducts(snapshot) {
+  return snapshot.docs.map(document => ({
+    ...document.data(),
+    id: document.id
   }))
-
 }
 
-export async function getProductsByCategory(category){
+export async function getProducts() {
+  const snapshot = await getDocs(collection(db, "products"))
 
-  const ref = collection(db,"products")
+  return mapProducts(snapshot).filter(
+    product => product.active !== false
+  )
+}
 
-  const q = query(
-    ref,
-    where("category","==",category)
+export async function getProductsByCategory(category) {
+  const productsQuery = query(
+    collection(db, "products"),
+    where("category", "==", category)
   )
 
-  const snapshot = await getDocs(q)
+  const snapshot = await getDocs(productsQuery)
 
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }))
-
+  return mapProducts(snapshot).filter(
+    product => product.active !== false
+  )
 }
 
-export async function getProduct(id){
+export async function getProduct(id) {
+  const snapshot = await getDoc(doc(db, "products", id))
 
-  const ref = doc(db,"products",id)
+  if (!snapshot.exists()) return null
 
-  const snapshot = await getDoc(ref)
-
-  return {
-    id:snapshot.id,
-    ...snapshot.data()
+  const product = {
+    ...snapshot.data(),
+    id: snapshot.id
   }
 
+  return product.active === false ? null : product
 }
 
-export async function createProduct(product){
+export async function createProduct(product) {
+  const reference = await addDoc(
+    collection(db, "products"),
+    product
+  )
 
-  const ref = collection(db,"products")
-
-  const docRef = await addDoc(ref, product)
-
-  return docRef.id
-
+  return reference.id
 }
 
-export async function updateProduct(id, data){
-
-  const ref = doc(db,"products",id)
-
-  await updateDoc(ref,data)
-
+export async function updateProduct(id, data) {
+  await updateDoc(doc(db, "products", id), data)
 }
 
-export async function deleteProduct(id){
-
-  const ref = doc(db,"products",id)
-
-  await deleteDoc(ref)
-
+export async function deleteProduct(id) {
+  await deleteDoc(doc(db, "products", id))
 }

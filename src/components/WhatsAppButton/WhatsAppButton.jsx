@@ -1,25 +1,29 @@
-import "./WhatsAppButton.css"
 import { FaWhatsapp } from "react-icons/fa"
-import { storeConfig } from "../../config/storeConfig"
 
-function WhatsAppButton(){
+import { getWhatsAppUrl } from "../../utils/storeUtils"
 
-  const url = `https://wa.me/${storeConfig.whatsapp}`
+import "./WhatsAppButton.css"
 
-  return(
+function WhatsAppButton() {
+  const url = getWhatsAppUrl()
 
+  if (!url) return null
+
+  return (
     <a
       href={url}
       target="_blank"
+      rel="noopener noreferrer"
       className="whatsapp-button"
+      aria-label="Consultar por WhatsApp, se abre en otra pestaña"
+      title="Consultanos por WhatsApp"
     >
-
-      <FaWhatsapp size={28} />
-
+      <FaWhatsapp
+        size={28}
+        aria-hidden="true"
+      />
     </a>
-
   )
-
 }
 
 export default WhatsAppButton

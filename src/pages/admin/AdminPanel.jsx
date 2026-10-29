@@ -1,79 +1,106 @@
 import { useState } from "react"
-import "./admin.css"
 
 import OrdersAdmin from "./OrdersAdmin"
 import ProductsAdmin from "./ProductsAdmin"
 import ProductForm from "./ProductForm"
+import ContentAdmin from "./ContentAdmin"
+
+import "./admin.css"
+
+const sections = [
+  {
+    id: "orders",
+    icon: "📦",
+    title: "Pedidos",
+    description: "Gestionar ventas"
+  },
+  {
+    id: "products",
+    icon: "🛍",
+    title: "Productos",
+    description: "Ver y editar"
+  },
+  {
+    id: "create",
+    icon: "➕",
+    title: "Crear producto",
+    description: "Agregar nuevo"
+  },
+  {
+    id: "categories",
+    icon: "🗂",
+    title: "Categorías",
+    description: "Crear, editar y ordenar"
+  },
+  {
+    id: "banners",
+    icon: "🖼",
+    title: "Banners",
+    description: "Administrar el inicio"
+  }
+]
 
 function AdminPanel() {
-
   const [view, setView] = useState("menu")
 
   return (
-
     <div className="admin-container container">
+      <h1 className="admin-title">
+        Panel Admin
+      </h1>
 
-      <h1 className="admin-title">Panel Admin</h1>
-
-      {view === "menu" && (
+      {view === "menu" ? (
         <div className="admin-menu">
+          {sections.map(section => (
+            <button
+              key={section.id}
+              type="button"
+              className="admin-card-btn"
+              onClick={() => setView(section.id)}
+            >
+              <strong>
+                <span aria-hidden="true">
+                  {section.icon}
+                </span>{" "}
+                {section.title}
+              </strong>
 
-          <button
-            className="admin-card-btn"
-            onClick={() => setView("orders")}
-          >
-            📦 Pedidos
-            <span>Gestionar ventas</span>
-          </button>
-
-          <button
-            className="admin-card-btn"
-            onClick={() => setView("products")}
-          >
-            🛍 Productos
-            <span>Ver y editar</span>
-          </button>
-
-          <button
-            className="admin-card-btn"
-            onClick={() => setView("create")}
-          >
-            ➕ Crear producto
-            <span>Agregar nuevo</span>
-          </button>
-
+              <span>
+                {section.description}
+              </span>
+            </button>
+          ))}
         </div>
-      )}
-
-      {view === "orders" && (
+      ) : (
         <>
-          <button className="admin-back" onClick={() => setView("menu")}>
-            ← Volver
+          <button
+            type="button"
+            className="admin-back"
+            onClick={() => setView("menu")}
+          >
+            ← Volver al menú
           </button>
-          <OrdersAdmin />
+
+          {view === "orders" && <OrdersAdmin />}
+          {view === "products" && <ProductsAdmin />}
+          {view === "create" && <ProductForm />}
+
+          {view === "categories" && (
+            <ContentAdmin
+              key="categories"
+              type="categories"
+            />
+          )}
+
+          {view === "banners" && (
+            <ContentAdmin
+              key="banners"
+              type="banners"
+            />
+          )}
         </>
       )}
-
-      {view === "products" && (
-        <>
-          <button className="admin-back" onClick={() => setView("menu")}>
-            ← Volver
-          </button>
-          <ProductsAdmin />
-        </>
-      )}
-
-      {view === "create" && (
-        <>
-          <button className="admin-back" onClick={() => setView("menu")}>
-            ← Volver
-          </button>
-          <ProductForm />
-        </>
-      )}
-
     </div>
-
   )
 }
 

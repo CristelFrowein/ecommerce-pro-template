@@ -1,16 +1,35 @@
-.layout{
+/* ==============================
+   ESTRUCTURA GENERAL
+============================== */
 
-min-height:100vh;
+.layout {
+  display: flex;
+  flex-direction: column;
 
-display:flex;
-flex-direction:column;
+  width: 100%;
+  min-width: 0;
 
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-.main-content{
+.layout > .main-content {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}
 
-flex:1;
+/* ==============================
+   NOTIFICACIONES
 
-padding-top:80px;
+   Deja espacio para el botón
+   flotante de WhatsApp.
+============================== */
 
+.Toastify__toast-container.store-toast-container {
+  bottom: 92px;
+  bottom: calc(
+    92px + env(safe-area-inset-bottom, 0px)
+  );
 }

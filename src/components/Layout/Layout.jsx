@@ -1,29 +1,54 @@
-import "./Layout.css"
+import { useLayoutEffect } from "react"
+
+import {
+  useLocation,
+  useNavigationType
+} from "react-router-dom"
 
 import Navbar from "../Navbar/Navbar"
 import Footer from "../Footer/Footer"
 import WhatsAppButton from "../WhatsAppButton/WhatsAppButton"
 
-function Layout({ children }){
+import "./Layout.css"
 
-  return(
+function Layout({ children }) {
+  const { pathname, search, hash } = useLocation()
+  const navigationType = useNavigationType()
 
+  const isAdmin =
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/")
+
+  useLayoutEffect(() => {
+    // Dejamos que el navegador gestione
+    // atrás/adelante y los enlaces con anclas.
+    if (
+      navigationType === "POP" ||
+      hash
+    ) {
+      return
+    }
+
+    window.scrollTo(0, 0)
+  }, [
+    pathname,
+    search,
+    hash,
+    navigationType
+  ])
+
+  return (
     <div className="layout">
-
       <Navbar />
 
-      <main className="main-content">
-
+      <div className="main-content">
         {children}
-
-      </main>
+      </div>
 
       <Footer />
 
-      <WhatsAppButton />
-
+      {!isAdmin && <WhatsAppButton />}
     </div>
-
   )
 }
 

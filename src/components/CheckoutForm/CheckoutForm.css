@@ -1,172 +1,445 @@
+/* ==============================
+   FONDO DEL MODAL
+============================== */
+
 .checkout-modal {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  z-index: 9999;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  z-index: 9999;
-
-  backdrop-filter: blur(4px);
-
+  padding: 16px;
   overflow-y: auto;
-  padding: 20px; 
+  overscroll-behavior: contain;
+
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
+.checkout-modal,
+.checkout-modal *,
+.checkout-modal *::before,
+.checkout-modal *::after {
+  box-sizing: border-box;
+}
+
+/* ==============================
+   CAJA DEL CHECKOUT
+
+   El scroll pertenece a la caja completa,
+   incluyendo resumen y formulario.
+============================== */
+
 .checkout-box {
-  background: var(--color-bg);
-  padding: 30px;
-  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
   width: 100%;
-  max-width: 420px;
+  max-width: 520px;
+  min-width: 0;
+  min-height: 0;
 
-  box-shadow: var(--shadow-md);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
 
+  padding: 26px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+
+  border-radius: var(--radius-lg, 16px);
+  background: var(--color-bg, #fafaf8);
+  color: var(--color-text, #3e3e3e);
+
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
+  animation: checkoutModalIn 0.2s ease;
+}
+
+/* Evita que el resumen comprima el formulario. */
+.checkout-box > * {
+  flex-shrink: 0;
+}
+
+.checkout-box h2 {
+  margin: 0;
+  color: var(--color-text, #3e3e3e);
+  font-size: 23px;
+  line-height: 1.3;
+}
+
+/* ==============================
+   RESUMEN DE PRODUCTOS
+============================== */
+
+.checkout-box .checkout-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 15px;
+
+  border: 1px solid var(--color-border, #e6dfd6);
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-surface, #ede6dd);
+}
+
+.checkout-box .summary-item {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-areas: "image info price";
+  align-items: start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.checkout-box .summary-item + .summary-item {
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border, #e6dfd6);
+}
+
+.checkout-box .summary-item > img {
+  grid-area: image;
+  display: block;
+
+  width: 48px;
+  height: 48px;
+  padding: 4px;
+
+  object-fit: contain;
+  border-radius: var(--radius-sm, 6px);
+  background: white;
+}
+
+.checkout-box .summary-info {
+  grid-area: info;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
+}
+
+.checkout-box .summary-name {
+  margin: 0;
+  color: var(--color-text, #3e3e3e);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.checkout-box .summary-qty {
+  margin: 0;
+  color: var(--color-text, #3e3e3e);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.checkout-box .summary-price {
+  grid-area: price;
+  max-width: 145px;
+  min-width: 0;
+
+  color: var(--color-text, #3e3e3e);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.checkout-box .summary-total {
+  margin-top: 2px;
+  padding-top: 13px;
+  border-top: 1px solid var(--color-border, #e6dfd6);
+
+  color: var(--color-primary-dark, #4f5443);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* ==============================
+   FORMULARIO
+============================== */
+
+.checkout-box form {
   display: flex;
   flex-direction: column;
   gap: 15px;
 
-  animation: modalIn 0.25s ease;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
 
-  max-height: 90vh; /* 🔥 clave */
+  /* El desplazamiento está en .checkout-box. */
+  overflow: visible;
 }
 
-.checkout-box form {
-  overflow-y: auto;
+.checkout-box .input-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 7px;
 }
-/* inputs */
+
+.checkout-box .input-group label {
+  color: var(--color-text, #3e3e3e);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 .checkout-box input,
 .checkout-box textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
   padding: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-main);
-  font-size: 14px;
+
+  border: 1px solid var(--color-border, #e6dfd6);
+  border-radius: var(--radius-sm, 6px);
+  background: white;
+  color: var(--color-text, #3e3e3e);
+
+  font-family: inherit;
+
+  /* También evita el zoom automático al enfocar en iPhone. */
+  font-size: 16px;
+  line-height: 1.5;
+
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.checkout-box input {
+  min-height: 48px;
+}
+
+.checkout-box textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.checkout-box input::placeholder,
+.checkout-box textarea::placeholder {
+  color: #707070;
+  opacity: 1;
 }
 
 .checkout-box input:focus,
 .checkout-box textarea:focus {
-  outline: none;
-  border-color: var(--color-primary);
+  outline: 2px solid var(--color-primary, #6b705c);
+  outline-offset: 2px;
+  border-color: var(--color-primary, #6b705c);
 }
 
-/* textarea */
-.checkout-box textarea {
-  resize: none;
-  height: 90px;
+.checkout-box input:disabled,
+.checkout-box textarea:disabled {
+  background: var(--color-surface, #ede6dd);
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
-/* botones */
-.checkout-actions {
+.checkout-box form > p {
+  margin: 0;
+  color: var(--color-text, #3e3e3e);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.checkout-box form > p[role="alert"] {
+  padding: 10px 12px;
+  border: 1px solid var(--color-danger, #dc2626);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--color-danger, #dc2626);
+  font-size: 13px;
+}
+
+/* ==============================
+   BOTONES
+============================== */
+
+.checkout-box .checkout-actions {
   display: flex;
   gap: 10px;
-  margin-top: 10px;
+  margin-top: 3px;
 }
 
-.confirm-btn {
-  flex: 1;
-  background: var(--color-primary);
+.checkout-box .confirm-btn,
+.checkout-box .cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px 14px;
+
+  border-radius: var(--radius-sm, 6px);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.checkout-box .confirm-btn {
+  border: 1px solid var(--color-primary, #6b705c);
+  background: var(--color-primary, #6b705c);
   color: white;
-  border: none;
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: 0.2s;
 }
 
-.confirm-btn:hover {
-  background: var(--color-primary-dark);
-  transform: translateY(-1px);
-}
-
-.cancel-btn {
-  flex: 1;
+.checkout-box .cancel-btn {
+  border: 1px solid var(--color-border, #e6dfd6);
   background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: 0.2s;
+  color: var(--color-text, #3e3e3e);
 }
 
-.cancel-btn:hover {
-  background: var(--color-surface);
+.checkout-box button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
-/* animación */
-@keyframes modalIn {
+.checkout-box button:focus-visible {
+  outline: 2px solid var(--color-primary, #6b705c);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .checkout-box .confirm-btn:not(:disabled):hover {
+    border-color: var(--color-primary-dark, #4f5443);
+    background: var(--color-primary-dark, #4f5443);
+  }
+
+  .checkout-box .cancel-btn:not(:disabled):hover {
+    background: var(--color-surface, #ede6dd);
+  }
+}
+
+/* ==============================
+   MOBILE
+============================== */
+
+@media (max-width: 600px) {
+  .checkout-modal {
+    padding: 12px;
+  }
+
+  .checkout-box {
+    gap: 18px;
+    padding: 20px 16px;
+
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+
+    border-radius: 14px;
+  }
+
+  .checkout-box h2 {
+    font-size: 21px;
+  }
+
+  .checkout-box .checkout-summary {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .checkout-box .checkout-actions {
+    flex-direction: column;
+  }
+
+  .checkout-box .confirm-btn,
+  .checkout-box .cancel-btn {
+    flex: none;
+    width: 100%;
+  }
+}
+
+/* ==============================
+   RESUMEN EN PANTALLAS ANGOSTAS
+============================== */
+
+@media (max-width: 420px) {
+  .checkout-box .summary-item {
+    grid-template-columns: 44px minmax(0, 1fr);
+
+    grid-template-areas:
+      "image info"
+      "image price";
+
+    gap: 5px 10px;
+  }
+
+  .checkout-box .summary-item > img {
+    width: 44px;
+    height: 44px;
+  }
+
+  .checkout-box .summary-price {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .checkout-box .summary-total {
+    font-size: 17px;
+  }
+}
+
+/* ==============================
+   PANTALLAS BAJAS / HORIZONTAL
+============================== */
+
+@media (max-height: 500px) {
+  .checkout-modal {
+    padding: 8px;
+  }
+
+  .checkout-box {
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    padding: 16px;
+  }
+}
+
+/* ==============================
+   ANIMACIÓN
+============================== */
+
+@keyframes checkoutModalIn {
   from {
     opacity: 0;
-    transform: scale(0.9) translateY(10px);
   }
+
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
   }
 }
 
-/*labels*/
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+@media (prefers-reduced-motion: reduce) {
+  .checkout-box {
+    animation: none;
+  }
 
-.input-group label {
-  font-size: 13px;
-  color: var(--color-text-light);
-}
-
-/*resumen*/
-
-/* RESUMEN */
-.checkout-summary {
-  background: var(--color-surface);
-  border-radius: var(--radius-sm);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.summary-item {
-  display: grid;
-  grid-template-columns: 50px 1fr auto;
-  gap: 10px;
-  align-items: center;
-}
-
-.summary-item img {
-  width: 50px;
-  height: 50px;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
-}
-
-.summary-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.summary-name {
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.summary-qty {
-  font-size: 12px;
-  color: var(--color-text-light);
-}
-
-.summary-price {
-  font-weight: 600;
-}
-
-.summary-total {
-  margin-top: 10px;
-  font-weight: 700;
-  text-align: right;
-  border-top: 1px solid var(--color-border);
-  padding-top: 8px;
+  .checkout-box input,
+  .checkout-box textarea,
+  .checkout-box button {
+    transition: none;
+  }
 }

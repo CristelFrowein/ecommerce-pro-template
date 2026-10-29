@@ -1,76 +1,86 @@
-import "./Hero.css"
 import { useEffect, useState } from "react"
-import { collection, getDocs } from "firebase/firestore"
-import { db } from "../../services/firebase"
 
-function Hero(){
+import { subscribeContent } from "../../services/contentService"
 
-  const [banner,setBanner] = useState(null)
+import "./Hero.css"
 
-  useEffect(()=>{
+function Hero() {
+  const [banner, setBanner] = useState(null)
 
-    const getBanner = async () => {
+  useEffect(() => {
+    return subscribeContent(
+      "banners",
+      state => {
+        const selected = state.items.find(
+          item => item.id === state.activeBannerId
+        )
 
-      const snapshot = await getDocs(collection(db,"banners"))
+        setBanner(selected || null)
+      },
+      error => {
+        console.error(
+          "Error al cargar banner:",
+          error
+        )
 
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-
-      if(data.length > 0){
-        setBanner(data[0])
+        setBanner(null)
       }
+    )
+  }, [])
 
-    }
+  function scrollToProducts() {
+    const section = document.getElementById(
+      "productos"
+    )
 
-    getBanner()
+    if (!section) return
 
-  },[])
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches
 
-  const scrollToProducts = () => {
-
-    const section = document.getElementById("productos")
-
-    if(section){
-      section.scrollIntoView({
-        behavior:"smooth"
-      })
-    }
-
+    section.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "start"
+    })
   }
 
-  if(!banner) return null
+  if (
+    !banner ||
+    typeof banner.image !== "string" ||
+    !banner.image
+  ) {
+    return null
+  }
 
-  return(
-
+  return (
     <section
       className="hero"
       style={{
         backgroundImage:
-          `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url(${banner.image})`
+          `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), ` +
+          `url(${JSON.stringify(banner.image)})`
       }}
     >
-
       <div className="hero-content">
-
         <h1>{banner.title}</h1>
 
-        <p>{banner.subtitle}</p>
+        {banner.subtitle && (
+          <p>{banner.subtitle}</p>
+        )}
 
-        <button
-          className="hero-btn"
-          onClick={scrollToProducts}
-        >
-          {banner.buttonText}
-        </button>
-
+        {banner.buttonText && (
+          <button
+            type="button"
+            className="hero-btn"
+            onClick={scrollToProducts}
+          >
+            {banner.buttonText}
+          </button>
+        )}
       </div>
-
     </section>
-
   )
-
 }
 
 export default Hero

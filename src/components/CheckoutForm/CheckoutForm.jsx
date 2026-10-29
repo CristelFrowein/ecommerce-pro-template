@@ -1,8 +1,19 @@
+import { useEffect, useRef, useState } from "react"
+
+import {
+  formatMoney,
+  getSelections
+} from "../../utils/cartUtils"
+
 import "./CheckoutForm.css"
-import { useState } from "react"
 
-function CheckoutForm({ cart, total, onClose, onConfirm }) {
-
+function CheckoutForm({
+  cart,
+  total,
+  submitting = false,
+  onClose,
+  onConfirm
+}) {
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -10,53 +21,106 @@ function CheckoutForm({ cart, total, onClose, onConfirm }) {
     notes: ""
   })
 
-  function handleChange(e) {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value
-    })
+  const [error, setError] = useState("")
+  const formRef = useRef(null)
+
+  useEffect(() => {
+    const previousFocus = document.activeElement
+    formRef.current?.querySelector("input")?.focus()
+
+    return () => {
+      previousFocus?.focus?.()
+    }
+  }, [])
+
+  function handleChange(event) {
+    const { name, value } = event.target
+
+    setForm(previous => ({
+      ...previous,
+      [name]: value
+    }))
+
+    setError("")
   }
 
-  function handleSubmit(e) {
-    e.preventDefault()
+  function handleSubmit(event) {
+    event.preventDefault()
 
-    if (!form.name || !form.phone) {
-      alert("Completá nombre y teléfono")
+    if (submitting) return
+
+    if (!form.name.trim() || !form.phone.trim()) {
+      setError("Completá nombre y teléfono.")
       return
     }
 
     onConfirm(form)
   }
 
-  return (
+  function handleKeyDown(event) {
+    if (event.key === "Escape") {
+      if (!submitting) onClose()
+      return
+    }
 
+    if (event.key !== "Tab") return
+
+    const focusable = [
+      ...event.currentTarget.querySelectorAll(
+        'input:not(:disabled), textarea:not(:disabled), button:not(:disabled)'
+      )
+    ]
+
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+
+    if (!first) {
+      event.preventDefault()
+      return
+    }
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
+  return (
     <div
       className="checkout-modal"
-      onClick={onClose}
+      onClick={() => {
+        if (!submitting) onClose()
+      }}
     >
-
       <div
         className="checkout-box"
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkout-title"
+        aria-busy={submitting}
+        onClick={event => event.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
+        <h2 id="checkout-title">Finalizar compra</h2>
 
-        <h2>Finalizar compra</h2>
-
-        {/* 🧾 RESUMEN */}
         <div className="checkout-summary">
-
           {cart.map(item => (
-            <div key={item.id} className="summary-item">
-
-              <img
-                src={item.image}
-                alt={item.name}
-              />
+            <div key={item.cartItemId} className="summary-item">
+              <img src={item.image} alt={item.name} />
 
               <div className="summary-info">
-                <p className="summary-name">
-                  {item.name}
-                </p>
+                <p className="summary-name">{item.name}</p>
+
+                {Object.entries(
+                  getSelections(item.selectedAttributes)
+                ).map(([name, value]) => (
+                  <p key={name} className="summary-qty">
+                    {name}: {value}
+                  </p>
+                ))}
 
                 <p className="summary-qty">
                   x{item.quantity}
@@ -64,83 +128,107 @@ function CheckoutForm({ cart, total, onClose, onConfirm }) {
               </div>
 
               <div className="summary-price">
-                ${item.price * item.quantity}
+                {formatMoney(item.price * item.quantity)}
               </div>
-
             </div>
           ))}
 
           <div className="summary-total">
-            Total: ${total}
+            Total: {formatMoney(total)}
           </div>
-
         </div>
 
-        <form onSubmit={handleSubmit}>
-
+        <form ref={formRef} onSubmit={handleSubmit}>
           <div className="input-group">
-            <label>Nombre</label>
+            <label htmlFor="checkout-name">Nombre</label>
             <input
+              id="checkout-name"
               type="text"
               name="name"
+              autoComplete="name"
               placeholder="Tu nombre"
               value={form.name}
               onChange={handleChange}
+              disabled={submitting}
+              maxLength={100}
+              required
             />
           </div>
 
           <div className="input-group">
-            <label>Teléfono</label>
+            <label htmlFor="checkout-phone">Teléfono</label>
             <input
-              type="text"
+              id="checkout-phone"
+              type="tel"
               name="phone"
+              autoComplete="tel"
               placeholder="Ej: 2231234567"
               value={form.phone}
               onChange={handleChange}
+              disabled={submitting}
+              maxLength={30}
+              required
             />
           </div>
 
           <div className="input-group">
-            <label>Dirección (opcional)</label>
+            <label htmlFor="checkout-address">
+              Dirección (opcional)
+            </label>
             <input
+              id="checkout-address"
               type="text"
               name="address"
-              placeholder="Calle, altura, etc"
+              autoComplete="street-address"
+              placeholder="Calle, altura, etc."
               value={form.address}
               onChange={handleChange}
+              disabled={submitting}
+              maxLength={250}
             />
           </div>
 
           <div className="input-group">
-            <label>Notas (opcional)</label>
+            <label htmlFor="checkout-notes">
+              Notas (opcional)
+            </label>
             <textarea
+              id="checkout-notes"
               name="notes"
               placeholder="Ej: entregar por la tarde"
               value={form.notes}
               onChange={handleChange}
+              disabled={submitting}
+              maxLength={1000}
             />
           </div>
 
-          <div className="checkout-actions">
+          <p>
+            El pedido queda pendiente de confirmación y no reserva stock.
+          </p>
 
-            <button type="submit" className="confirm-btn">
-              Confirmar pedido
+          {error && <p role="alert">{error}</p>}
+
+          <div className="checkout-actions">
+            <button
+              type="submit"
+              className="confirm-btn"
+              disabled={submitting}
+            >
+              {submitting ? "Guardando..." : "Confirmar pedido"}
             </button>
 
             <button
               type="button"
               className="cancel-btn"
+              disabled={submitting}
               onClick={onClose}
             >
               Cancelar
             </button>
-
           </div>
-
         </form>
-
       </div>
-
     </div>
   )
 }

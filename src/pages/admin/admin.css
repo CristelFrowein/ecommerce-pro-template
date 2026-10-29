@@ -1,109 +1,204 @@
-/* CONTENEDOR GENERAL */
-.admin-container{
-  padding:40px 0;
-  display:flex;
-  flex-direction:column;
-  gap:30px;
+/* ==============================
+   CONTENEDOR
+============================== */
+
+.admin-container {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: 40px 0;
+  min-width: 0;
 }
 
-/* TITULOS */
-.admin-title{
-  font-size:28px;
-  font-weight:700;
-  color:var(--color-text);
+.admin-title {
+  margin: 0;
+  color: var(--color-text, #3e3e3e);
+  font-size: 28px;
+  font-weight: 700;
 }
 
-/* MENU PRINCIPAL */
-.admin-menu{
-  display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
-  gap:20px;
+/* ==============================
+   MENÚ
+============================== */
+
+.admin-menu {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(200px, 1fr)
+  );
+  gap: 20px;
 }
 
-/* BOTONES GRANDES */
-.admin-card-btn{
-  padding:25px;
-  border:none;
-  border-radius:var(--radius-md);
-  background:var(--color-surface);
-  box-shadow:var(--shadow-sm);
-  cursor:pointer;
+.admin-card-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
 
-  display:flex;
-  flex-direction:column;
-  gap:10px;
+  min-width: 0;
+  min-height: 125px;
+  padding: 25px;
 
-  transition:.25s;
+  border: none;
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-surface, #ede6dd);
+  color: var(--color-text, #3e3e3e);
+  box-shadow: var(--shadow-sm);
+
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.admin-card-btn:hover{
-  transform:translateY(-4px);
-  box-shadow:var(--shadow-md);
-  background:var(--color-primary-light);
-  color:white;
+.admin-card-btn strong {
+  font-size: 17px;
+  line-height: 1.4;
 }
 
-/* BOTON VOLVER */
-.admin-back{
-  align-self:flex-start;
-
-  border:none;
-  background:transparent;
-
-  color:var(--color-primary);
-  cursor:pointer;
-
-  font-weight:600;
-  margin-bottom:10px;
+.admin-card-btn > span {
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-/* CARDS GENERALES */
-.admin-card{
-  background:var(--color-surface);
-  border-radius:var(--radius-md);
-  padding:20px;
-  box-shadow:var(--shadow-sm);
+/* ==============================
+   VOLVER
+============================== */
 
-  transition:.2s;
+.admin-back {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 8px 0;
+
+  border: none;
+  background: transparent;
+  color: var(--color-primary-dark, #4f5443);
+
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.admin-card:hover{
-  box-shadow:var(--shadow-md);
+/* ==============================
+   TARJETAS
+============================== */
+
+.admin-card {
+  min-width: 0;
+  padding: 20px;
+
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-surface, #ede6dd);
+  box-shadow: var(--shadow-sm);
 }
 
-/* INPUTS */
-.admin-input{
-  padding:12px;
-  border-radius:var(--radius-sm);
-  border:1px solid var(--color-border);
-  font-family:var(--font-main);
+/* ==============================
+   CAMPOS
+============================== */
+
+.admin-input {
+  box-sizing: border-box;
+  padding: 12px;
+
+  border: 1px solid var(--color-border, #e6dfd6);
+  border-radius: var(--radius-sm, 6px);
+
+  font-family: var(--font-main, system-ui, sans-serif);
 }
 
-/* BOTONES */
-.admin-btn{
-  padding:12px;
-  border:none;
-  border-radius:var(--radius-sm);
-  background:var(--color-primary);
-  color:white;
-  cursor:pointer;
-  font-weight:600;
+/* ==============================
+   BOTONES
+============================== */
 
-  transition:.2s;
+.admin-btn {
+  min-height: 44px;
+  padding: 12px 14px;
+
+  border: 1px solid var(--color-primary, #6b705c);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-primary, #6b705c);
+  color: white;
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
-.admin-btn:hover{
-  background:var(--color-primary-dark);
+.admin-btn-danger {
+  border-color: var(--color-danger, #dc2626);
+  background: transparent;
+  color: var(--color-danger, #dc2626);
 }
 
-/* BOTON PELIGRO */
-.admin-btn-danger{
-  background:transparent;
-  color:var(--color-danger);
-  border:1px solid var(--color-danger);
+.admin-container button:focus-visible {
+  outline: 2px solid var(--color-primary, #6b705c);
+  outline-offset: 3px;
 }
 
-.admin-btn-danger:hover{
-  background:var(--color-danger);
-  color:white;
+@media (hover: hover) and (pointer: fine) {
+  .admin-card-btn:hover {
+    transform: translateY(-4px);
+    background: var(--color-primary-light, #8aa08a);
+    box-shadow: var(--shadow-md);
+  }
+
+  .admin-btn:not(:disabled):hover {
+    background: var(--color-primary-dark, #4f5443);
+  }
+
+  .admin-btn-danger:not(:disabled):hover {
+    background: var(--color-danger, #dc2626);
+    color: white;
+  }
+}
+
+/* ==============================
+   MOBILE
+============================== */
+
+@media (max-width: 600px) {
+  .admin-container {
+    gap: 20px;
+    padding: 24px 0;
+  }
+
+  .admin-title {
+    font-size: 25px;
+  }
+
+  .admin-menu {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .admin-card-btn {
+    min-height: 105px;
+    padding: 20px;
+  }
+
+  .admin-card {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-card-btn,
+  .admin-btn {
+    transition: none;
+  }
+
+  .admin-card-btn:hover {
+    transform: none;
+  }
 }

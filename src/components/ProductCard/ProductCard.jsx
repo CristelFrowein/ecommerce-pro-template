@@ -1,236 +1,121 @@
-import { Link } from "react-router-dom"
-import { useContext } from "react"
-import { CartContext } from "../../context/CartContext"
-import "./ProductCard.css"
-
+import { Link, useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 
+import { useCart } from "../../hooks/useCart"
+
+import {
+  formatMoney,
+  getSelectableAttributes,
+  getStock
+} from "../../utils/cartUtils"
+
+import "./ProductCard.css"
 
 function ProductCard({ product }) {
+  const navigate = useNavigate()
+  const { addToCart } = useCart()
 
-  const { addToCart } =
-    useContext(CartContext)
+  if (!product || product.active === false) return null
 
+  const stock = getStock(product)
+  const isOutOfStock = stock <= 0
+  const hasOptions = getSelectableAttributes(product).length > 0
+  const image = product.image || product.images?.[0] || ""
 
-  /* ========================================
-     STOCK
-  ======================================== */
+  function handleAddToCart() {
+    if (isOutOfStock) return
 
-  const stock =
-    Number(product.stock) || 0
+    if (hasOptions) {
+      navigate(`/producto/${product.id}`)
+      return
+    }
 
+    const result = addToCart(product)
 
-  const isOutOfStock =
-    stock <= 0
-
-
-  const isLowStock =
-    stock > 0 && stock <= 5
-
-
-  /* ========================================
-     TOAST
-  ======================================== */
-
-  const showCartToast = () => {
+    if (!result.ok) {
+      toast.warning(result.message)
+      return
+    }
 
     toast(
-
       <div className="cart-toast">
-
         <img
-          src={product.image}
+          src={image}
           alt={product.name}
           className="toast-image"
         />
 
-
         <div className="toast-info">
-
           <p className="toast-title">
             {product.name} agregado 🛒
           </p>
 
-
-          <Link
-            to="/cart"
-            className="toast-btn"
-          >
+          <Link to="/cart" className="toast-btn">
             Ver carrito
           </Link>
-
         </div>
-
       </div>,
-
-      {
-        position: "bottom-right",
-        autoClose: 3000
-      }
-
+      { autoClose: 3000 }
     )
   }
 
-
-  /* ========================================
-     AGREGAR AL CARRITO
-  ======================================== */
-
-  function handleAddToCart() {
-
-    /*
-     * Seguridad adicional:
-     * aunque el botón esté deshabilitado,
-     * tampoco permitimos agregar mediante
-     * otra llamada.
-     */
-
-    if (isOutOfStock) {
-      return
-    }
-
-
-    addToCart(product)
-
-    showCartToast()
-  }
-
-
-  /* ========================================
-     RENDER
-  ======================================== */
-
   return (
-
     <div className="product-card">
-
-
-      {/* ========================================
-          IMAGEN
-      ======================================== */}
-
       <Link
         to={`/producto/${product.id}`}
         className="product-image"
       >
-
-        {product.discount && (
-
+        {Number(product.discount) > 0 && (
           <span className="discount-badge">
             -{product.discount}%
           </span>
-
         )}
 
-
-        <img
-          src={product.image}
-          alt={product.name}
-        />
-
+        <img src={image} alt={product.name} loading="lazy" />
       </Link>
 
-
-      {/* ========================================
-          INFORMACIÓN
-      ======================================== */}
-
       <div className="product-info">
-
-
-        {/* NOMBRE */}
-
-        <h3 className="product-title">
-          {product.name}
-        </h3>
-
-
-        {/* ========================================
-            PRECIO
-        ======================================== */}
+        <h3 className="product-title">{product.name}</h3>
 
         <div className="product-price">
-
-
-          {product.oldPrice && (
-
+          {Number(product.oldPrice) > 0 && (
             <span className="old-price">
-              $
-              {Number(
-                product.oldPrice
-              ).toLocaleString("es-AR")}
+              {formatMoney(product.oldPrice)}
             </span>
-
           )}
-
 
           <span className="price">
-            $
-            {Number(
-              product.price
-            ).toLocaleString("es-AR")}
+            {formatMoney(product.price)}
           </span>
-
-
         </div>
-
-
-        {/* ========================================
-            STOCK
-        ======================================== */}
 
         <div className="product-stock">
-
-
           {stock > 5 && (
-
-            <span className="in-stock">
-              ✔ En stock
-            </span>
-
+            <span className="in-stock">✔ En stock</span>
           )}
 
-
-          {isLowStock && (
-
-            <span className="low-stock">
-              ⚠ Últimas unidades
-            </span>
-
+          {stock > 0 && stock <= 5 && (
+            <span className="low-stock">⚠ Últimas unidades</span>
           )}
-
 
           {isOutOfStock && (
-
-            <span className="no-stock">
-              ❌ Sin stock
-            </span>
-
+            <span className="no-stock">❌ Sin stock</span>
           )}
-
-
         </div>
 
-
-        {/* ========================================
-            ACCIONES
-        ======================================== */}
-
         <div className="product-actions">
-
-
           <button
+            type="button"
             className="add-cart-btn"
             disabled={isOutOfStock}
             onClick={handleAddToCart}
           >
-
             {isOutOfStock
               ? "Sin stock"
-              : "Agregar al carrito"}
-
+              : hasOptions
+                ? "Elegir opciones"
+                : "Agregar al carrito"}
           </button>
-
 
           <Link
             to={`/producto/${product.id}`}
@@ -238,17 +123,10 @@ function ProductCard({ product }) {
           >
             Ver detalles
           </Link>
-
-
         </div>
-
-
       </div>
-
     </div>
-
   )
 }
-
 
 export default ProductCard

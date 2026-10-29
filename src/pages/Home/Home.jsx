@@ -1,128 +1,173 @@
-import "./Home.css"
 import { useEffect, useState } from "react"
-import { collection, getDocs } from "firebase/firestore"
-import { db } from "../../services/firebase"
+
+import { getProducts } from "../../services/productService"
+import { subscribeContent } from "../../services/contentService"
 
 import CategoryCard from "../../components/CategoryCard/CategoryCard"
 import ProductCard from "../../components/ProductCard/ProductCard"
 import Hero from "../../components/Hero/Hero"
 
-function Home(){
+import "./Home.css"
 
-  const [categories,setCategories] = useState([])
-  const [products,setProducts] = useState([])
-  const [offers,setOffers] = useState([])
+function Home() {
+  const [categories, setCategories] = useState([])
+  const [products, setProducts] = useState([])
+  const [offers, setOffers] = useState([])
 
-  useEffect(()=>{
+  const [loading, setLoading] = useState(true)
+  const [productsError, setProductsError] = useState("")
+  const [categoriesError, setCategoriesError] = useState("")
 
-    const loadData = async () => {
+  useEffect(() => {
+    return subscribeContent(
+      "categories",
+      state => {
+        setCategories(
+          state.items.filter(category => category.slug)
+        )
 
-      // categorías
-      const catSnapshot = await getDocs(collection(db,"categories"))
+        setCategoriesError("")
+      },
+      error => {
+        console.error(
+          "Error al cargar categorías:",
+          error
+        )
 
-      const cats = catSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+        setCategoriesError(
+          "No pudimos cargar las categorías."
+        )
+      }
+    )
+  }, [])
 
-      setCategories(cats)
+  useEffect(() => {
+    let cancelled = false
 
-      // productos
-      const prodSnapshot = await getDocs(collection(db,"products"))
+    async function loadProducts() {
+      try {
+        const data = await getProducts()
 
-      const prods = prodSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
+        if (cancelled) return
 
-      setProducts(prods.slice(0,8)) // destacados
+        const activeProducts = data.filter(
+          product => product.active !== false
+        )
 
-      // ofertas
-      const discounted = prods.filter(p => p.discount)
-      setOffers(discounted.slice(0,4))
+        setProducts(activeProducts.slice(0, 8))
 
+        setOffers(
+          activeProducts
+            .filter(
+              product => Number(product.discount) > 0
+            )
+            .slice(0, 4)
+        )
+      } catch (error) {
+        console.error(
+          "Error al cargar productos:",
+          error
+        )
+
+        if (!cancelled) {
+          setProductsError(
+            "No pudimos cargar los productos. Intentá nuevamente."
+          )
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
 
-    loadData()
+    loadProducts()
 
-  },[])
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-  return(
-
+  return (
     <div className="home-page">
-
-      {/* HERO FULL WIDTH */}
       <Hero />
 
-      {/* CONTENIDO CENTRADO */}
       <div className="container">
+        {categoriesError && (
+          <p role="alert">{categoriesError}</p>
+        )}
 
-        {/* CATEGORÍAS */}
-        <section className="home-section">
+        {categories.length > 0 && (
+          <section className="home-section">
+            <h2 className="section-title">
+              Categorías
+            </h2>
 
-          <h2 className="section-title">
-            Categorías
-          </h2>
+            <div className="categories-grid">
+              {categories.map(category => (
+                <CategoryCard
+                  key={category.id}
+                  category={category}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
-          <div className="categories-grid">
-
-            {categories.map(cat => (
-              <CategoryCard
-                key={cat.id}
-                category={cat}
-              />
-            ))}
-
-          </div>
-
-        </section>
-
-        {/* PRODUCTOS DESTACADOS */}
-        <section className="home-section">
-
+        <section
+          id="productos"
+          className="home-section"
+          style={{ scrollMarginTop: "180px" }}
+        >
           <h2 className="section-title">
             Productos destacados
           </h2>
 
-          <div className="products-grid">
+          {loading && (
+            <p role="status">
+              Cargando productos...
+            </p>
+          )}
 
+          {productsError && (
+            <p role="alert">{productsError}</p>
+          )}
+
+          {!loading &&
+            !productsError &&
+            products.length === 0 && (
+              <p>
+                No hay productos disponibles por el momento.
+              </p>
+            )}
+
+          <div className="products-grid">
             {products.map(product => (
               <ProductCard
                 key={product.id}
                 product={product}
               />
             ))}
-
           </div>
-
         </section>
 
-        {/* OFERTAS */}
-        <section className="home-section">
+        {offers.length > 0 && (
+          <section className="home-section">
+            <h2 className="section-title">
+              Ofertas
+            </h2>
 
-          <h2 className="section-title">
-            Ofertas
-          </h2>
-
-          <div className="products-grid">
-
-            {offers.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-              />
-            ))}
-
-          </div>
-
-        </section>
-
+            <div className="products-grid">
+              {offers.map(product => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
-
     </div>
-
   )
-
 }
 
 export default Home
