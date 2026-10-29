@@ -1,3 +1,5 @@
+import { lazy, Suspense } from "react"
+
 import {
   BrowserRouter,
   Route,
@@ -10,13 +12,17 @@ import Home from "./pages/Home/Home"
 import Cart from "./pages/Cart/Cart"
 import Category from "./pages/Category/Category"
 import ProductDetail from "./pages/ProductDetail/ProductDetail"
-import AdminPage from "./pages/admin/AdminPage"
 import Search from "./pages/Search/Search"
 import NotFound from "./pages/NotFound/NotFound"
 
 import { ToastContainer } from "react-toastify"
 
 import "react-toastify/dist/ReactToastify.css"
+
+// Se descarga únicamente cuando se necesita.
+const AdminPage = lazy(
+  () => import("./pages/admin/AdminPage")
+)
 
 function App() {
   return (
@@ -50,7 +56,22 @@ function App() {
 
           <Route
             path="/admin"
-            element={<AdminPage />}
+            element={
+              <Suspense
+                fallback={
+                  <div
+                    className="container"
+                    role="status"
+                    aria-live="polite"
+                    style={{ padding: "40px 0" }}
+                  >
+                    <p>Cargando administrador...</p>
+                  </div>
+                }
+              >
+                <AdminPage />
+              </Suspense>
+            }
           />
 
           <Route

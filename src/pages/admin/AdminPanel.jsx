@@ -43,6 +43,10 @@ const sections = [
 function AdminPanel() {
   const [view, setView] = useState("menu")
 
+  function backToMenu() {
+    setView("menu")
+  }
+
   return (
     <div className="admin-container container">
       <h1 className="admin-title">
@@ -76,14 +80,22 @@ function AdminPanel() {
           <button
             type="button"
             className="admin-back"
-            onClick={() => setView("menu")}
+            onClick={backToMenu}
           >
             ← Volver al menú
           </button>
 
-          {view === "orders" && <OrdersAdmin />}
-          {view === "products" && <ProductsAdmin />}
-          {view === "create" && <ProductForm />}
+          {view === "orders" && (
+            <OrdersAdmin />
+          )}
+
+          {view === "products" && (
+            <ProductsAdmin />
+          )}
+
+          {view === "create" && (
+            <ProductForm onBack={backToMenu} />
+          )}
 
           {view === "categories" && (
             <ContentAdmin

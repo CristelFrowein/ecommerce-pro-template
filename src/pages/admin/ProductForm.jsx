@@ -1,12 +1,23 @@
 import { useState } from "react"
-import { addDoc, collection } from "firebase/firestore"
+
+import {
+  addDoc,
+  collection
+} from "firebase/firestore"
+
 import { db } from "../../services/firebase"
+
+import {
+  useProductCategories
+} from "../../hooks/useProductCategories"
+
+import {
+  validateProductNumbers
+} from "../../utils/productValidation"
+
+import ProductCategorySelect from "./ProductCategorySelect"
+
 import "./ProductForm.css"
-
-
-/* ========================================
-   CARACTERÍSTICAS PREARMADAS
-======================================== */
 
 const predefinedAttributes = [
   "Marca",
@@ -24,18 +35,7 @@ const predefinedAttributes = [
   "Tipo"
 ]
 
-
-/* ========================================
-   PRODUCT FORM
-======================================== */
-
 function ProductForm({ onBack }) {
-
-
-  /* ========================================
-     PRODUCTO VACÍO
-  ======================================== */
-
   const emptyProduct = {
     name: "",
     price: "",
@@ -48,38 +48,24 @@ function ProductForm({ onBack }) {
     attributes: []
   }
 
-
-  /* ========================================
-     PRODUCTOS
-  ======================================== */
-
   const [products, setProducts] = useState([
     { ...emptyProduct }
   ])
 
-
-  /* ========================================
-     ESTADOS DE SUBIDA
-  ======================================== */
-
   const [uploading, setUploading] = useState(false)
-
   const [uploaded, setUploaded] = useState(false)
 
+  const categoryState = useProductCategories()
 
-  /* ========================================
-     CAMBIAR PRODUCTO
-  ======================================== */
+  // ==============================
+  // PRODUCTOS
+  // ==============================
 
   function handleChange(index, field, value) {
-
-    setProducts(prev =>
-      prev.map((product, i) =>
+    setProducts(previous =>
+      previous.map((product, i) =>
         i === index
-          ? {
-              ...product,
-              [field]: value
-            }
+          ? { ...product, [field]: value }
           : product
       )
     )
@@ -87,15 +73,9 @@ function ProductForm({ onBack }) {
     setUploaded(false)
   }
 
-
-  /* ========================================
-     CREAR OTRO PRODUCTO
-  ======================================== */
-
   function handleAddProduct() {
-
-    setProducts(prev => [
-      ...prev,
+    setProducts(previous => [
+      ...previous,
       {
         ...emptyProduct,
         images: [],
@@ -106,219 +86,142 @@ function ProductForm({ onBack }) {
     setUploaded(false)
   }
 
-
-  /* ========================================
-     ELIMINAR PRODUCTO
-  ======================================== */
-
   function handleRemoveProduct(index) {
+    if (products.length === 1) return
 
-    if (products.length === 1) {
-      return
-    }
-
-    setProducts(prev =>
-      prev.filter((_, i) => i !== index)
+    setProducts(previous =>
+      previous.filter((_, i) => i !== index)
     )
 
     setUploaded(false)
   }
 
-
-  /* ========================================
-     AGREGAR IMAGEN
-  ======================================== */
+  // ==============================
+  // IMÁGENES
+  // ==============================
 
   function handleAddImage(index) {
-
-    setProducts(prev =>
-      prev.map((product, i) => {
-
-        if (i !== index) {
-          return product
-        }
-
-        return {
-          ...product,
-
-          images: [
-            ...product.images,
-            ""
-          ]
-        }
-
-      })
+    setProducts(previous =>
+      previous.map((product, i) =>
+        i === index
+          ? {
+              ...product,
+              images: [...product.images, ""]
+            }
+          : product
+      )
     )
 
     setUploaded(false)
   }
-
-
-  /* ========================================
-     CAMBIAR IMAGEN ADICIONAL
-  ======================================== */
 
   function handleImageChange(
     productIndex,
     imageIndex,
     value
   ) {
+    setProducts(previous =>
+      previous.map((product, i) => {
+        if (i !== productIndex) return product
 
-    setProducts(prev =>
-      prev.map((product, i) => {
+        const images = [...product.images]
+        images[imageIndex] = value
 
-        if (i !== productIndex) {
-          return product
-        }
-
-        const updatedImages = [
-          ...product.images
-        ]
-
-        updatedImages[imageIndex] = value
-
-        return {
-          ...product,
-          images: updatedImages
-        }
-
+        return { ...product, images }
       })
     )
 
     setUploaded(false)
   }
-
-
-  /* ========================================
-     ELIMINAR IMAGEN ADICIONAL
-  ======================================== */
 
   function handleRemoveImage(
     productIndex,
     imageIndex
   ) {
-
-    setProducts(prev =>
-      prev.map((product, i) => {
-
-        if (i !== productIndex) {
-          return product
-        }
-
-        return {
-          ...product,
-
-          images:
-            product.images.filter(
-              (_, imageIndexToRemove) =>
-                imageIndexToRemove !== imageIndex
-            )
-        }
-
-      })
+    setProducts(previous =>
+      previous.map((product, i) =>
+        i === productIndex
+          ? {
+              ...product,
+              images: product.images.filter(
+                (_, index) => index !== imageIndex
+              )
+            }
+          : product
+      )
     )
 
     setUploaded(false)
   }
 
-
-  /* ========================================
-     AGREGAR CARACTERÍSTICA
-  ======================================== */
+  // ==============================
+  // CARACTERÍSTICAS
+  // ==============================
 
   function handleAddAttribute(index, attributeName) {
-
     if (!attributeName) return
 
-    setProducts(prev =>
-      prev.map((product, i) => {
+    setProducts(previous =>
+      previous.map((product, i) => {
+        if (i !== index) return product
 
-        if (i !== index) {
-          return product
-        }
-
-        const alreadyExists =
-          product.attributes.some(
-            attribute =>
-              attribute.name.toLowerCase() ===
-              attributeName.toLowerCase()
-          )
+        const alreadyExists = product.attributes.some(
+          attribute =>
+            attribute.name.toLowerCase() ===
+            attributeName.toLowerCase()
+        )
 
         if (alreadyExists) {
-
-          alert(
-            "Esta característica ya fue agregada."
-          )
-
+          alert("Esta característica ya fue agregada.")
           return product
-        }
-
-        const newAttribute = {
-          name: attributeName,
-          type: "info",
-          value: "",
-          options: [],
-          required: false
         }
 
         return {
           ...product,
-
           attributes: [
             ...product.attributes,
-            newAttribute
+            {
+              name: attributeName,
+              type: "info",
+              value: "",
+              options: [],
+              required: false
+            }
           ]
         }
-
       })
     )
 
     setUploaded(false)
   }
 
-
-  /* ========================================
-     AGREGAR CARACTERÍSTICA PERSONALIZADA
-  ======================================== */
-
   function handleAddCustomAttribute(index) {
-
     const name = prompt(
-      "Escribí el nombre de la característica.\nEj: Fragancia, Presentación, Conexión..."
+      "Escribí el nombre de la característica.\n" +
+      "Ej: Fragancia, Presentación, Conexión..."
     )
 
-    if (!name || !name.trim()) {
-      return
-    }
+    if (!name || !name.trim()) return
 
     const trimmedName = name.trim()
 
-    setProducts(prev =>
-      prev.map((product, i) => {
+    setProducts(previous =>
+      previous.map((product, i) => {
+        if (i !== index) return product
 
-        if (i !== index) {
-          return product
-        }
-
-        const alreadyExists =
-          product.attributes.some(
-            attribute =>
-              attribute.name.toLowerCase() ===
-              trimmedName.toLowerCase()
-          )
+        const alreadyExists = product.attributes.some(
+          attribute =>
+            attribute.name.toLowerCase() ===
+            trimmedName.toLowerCase()
+        )
 
         if (alreadyExists) {
-
-          alert(
-            "Esta característica ya fue agregada."
-          )
-
+          alert("Esta característica ya fue agregada.")
           return product
         }
 
         return {
           ...product,
-
           attributes: [
             ...product.attributes,
             {
@@ -330,17 +233,11 @@ function ProductForm({ onBack }) {
             }
           ]
         }
-
       })
     )
 
     setUploaded(false)
   }
-
-
-  /* ========================================
-     CAMBIAR CARACTERÍSTICA
-  ======================================== */
 
   function handleAttributeChange(
     productIndex,
@@ -348,189 +245,121 @@ function ProductForm({ onBack }) {
     field,
     value
   ) {
-
-    setProducts(prev =>
-      prev.map((product, i) => {
-
-        if (i !== productIndex) {
-          return product
-        }
-
-        const updatedAttributes =
-          product.attributes.map(
-            (attribute, attrIndex) => {
-
-              if (attrIndex !== attributeIndex) {
-                return attribute
-              }
-
-              return {
-                ...attribute,
-                [field]: value
-              }
-
+    setProducts(previous =>
+      previous.map((product, i) =>
+        i === productIndex
+          ? {
+              ...product,
+              attributes: product.attributes.map(
+                (attribute, index) =>
+                  index === attributeIndex
+                    ? { ...attribute, [field]: value }
+                    : attribute
+              )
             }
-          )
-
-        return {
-          ...product,
-          attributes: updatedAttributes
-        }
-
-      })
+          : product
+      )
     )
 
     setUploaded(false)
   }
-
-
-  /* ========================================
-     CAMBIAR TIPO DE CARACTERÍSTICA
-  ======================================== */
 
   function handleAttributeTypeChange(
     productIndex,
     attributeIndex,
     type
   ) {
+    setProducts(previous =>
+      previous.map((product, i) => {
+        if (i !== productIndex) return product
 
-    setProducts(prev =>
-      prev.map((product, i) => {
+        const attributes = product.attributes.map(
+          (attribute, index) => {
+            if (index !== attributeIndex) {
+              return attribute
+            }
 
-        if (i !== productIndex) {
-          return product
-        }
-
-        const updatedAttributes =
-          product.attributes.map(
-            (attribute, attrIndex) => {
-
-              if (attrIndex !== attributeIndex) {
-                return attribute
-              }
-
-              if (type === "select") {
-
-                return {
-                  ...attribute,
-                  type: "select",
-                  value: "",
-                  options:
-                    attribute.options?.length > 0
-                      ? attribute.options
-                      : [""],
-                  required: true
-                }
-
-              }
-
+            if (type === "select") {
               return {
                 ...attribute,
-                type: "info",
+                type: "select",
                 value: "",
-                options: [],
-                required: false
+                options: attribute.options?.length > 0
+                  ? attribute.options
+                  : [""],
+                required: true
               }
-
             }
-          )
 
-        return {
-          ...product,
-          attributes: updatedAttributes
-        }
+            return {
+              ...attribute,
+              type: "info",
+              value: "",
+              options: [],
+              required: false
+            }
+          }
+        )
 
+        return { ...product, attributes }
       })
     )
 
     setUploaded(false)
   }
-
-
-  /* ========================================
-     ELIMINAR CARACTERÍSTICA
-  ======================================== */
 
   function handleRemoveAttribute(
     productIndex,
     attributeIndex
   ) {
-
-    setProducts(prev =>
-      prev.map((product, i) => {
-
-        if (i !== productIndex) {
-          return product
-        }
-
-        return {
-          ...product,
-
-          attributes:
-            product.attributes.filter(
-              (_, attrIndex) =>
-                attrIndex !== attributeIndex
-            )
-        }
-
-      })
+    setProducts(previous =>
+      previous.map((product, i) =>
+        i === productIndex
+          ? {
+              ...product,
+              attributes: product.attributes.filter(
+                (_, index) => index !== attributeIndex
+              )
+            }
+          : product
+      )
     )
 
     setUploaded(false)
   }
 
-
-  /* ========================================
-     AGREGAR OPCIÓN
-  ======================================== */
+  // ==============================
+  // OPCIONES
+  // ==============================
 
   function handleAddOption(
     productIndex,
     attributeIndex
   ) {
-
-    setProducts(prev =>
-      prev.map((product, i) => {
-
-        if (i !== productIndex) {
-          return product
-        }
-
-        const updatedAttributes =
-          product.attributes.map(
-            (attribute, attrIndex) => {
-
-              if (attrIndex !== attributeIndex) {
-                return attribute
-              }
-
-              return {
-                ...attribute,
-
-                options: [
-                  ...(attribute.options || []),
-                  ""
-                ]
-              }
-
+    setProducts(previous =>
+      previous.map((product, i) =>
+        i === productIndex
+          ? {
+              ...product,
+              attributes: product.attributes.map(
+                (attribute, index) =>
+                  index === attributeIndex
+                    ? {
+                        ...attribute,
+                        options: [
+                          ...(attribute.options || []),
+                          ""
+                        ]
+                      }
+                    : attribute
+              )
             }
-          )
-
-        return {
-          ...product,
-          attributes: updatedAttributes
-        }
-
-      })
+          : product
+      )
     )
 
     setUploaded(false)
   }
-
-
-  /* ========================================
-     CAMBIAR OPCIÓN
-  ======================================== */
 
   function handleOptionChange(
     productIndex,
@@ -538,321 +367,203 @@ function ProductForm({ onBack }) {
     optionIndex,
     value
   ) {
+    setProducts(previous =>
+      previous.map((product, i) => {
+        if (i !== productIndex) return product
 
-    setProducts(prev =>
-      prev.map((product, i) => {
-
-        if (i !== productIndex) {
-          return product
-        }
-
-        const updatedAttributes =
-          product.attributes.map(
-            (attribute, attrIndex) => {
-
-              if (attrIndex !== attributeIndex) {
-                return attribute
-              }
-
-              const updatedOptions =
-                [...(attribute.options || [])]
-
-              updatedOptions[optionIndex] = value
-
-              return {
-                ...attribute,
-                options: updatedOptions
-              }
-
+        const attributes = product.attributes.map(
+          (attribute, index) => {
+            if (index !== attributeIndex) {
+              return attribute
             }
-          )
 
-        return {
-          ...product,
-          attributes: updatedAttributes
-        }
+            const options = [
+              ...(attribute.options || [])
+            ]
 
+            options[optionIndex] = value
+
+            return { ...attribute, options }
+          }
+        )
+
+        return { ...product, attributes }
       })
     )
 
     setUploaded(false)
   }
-
-
-  /* ========================================
-     ELIMINAR OPCIÓN
-  ======================================== */
 
   function handleRemoveOption(
     productIndex,
     attributeIndex,
     optionIndex
   ) {
-
-    setProducts(prev =>
-      prev.map((product, i) => {
-
-        if (i !== productIndex) {
-          return product
-        }
-
-        const updatedAttributes =
-          product.attributes.map(
-            (attribute, attrIndex) => {
-
-              if (attrIndex !== attributeIndex) {
-                return attribute
-              }
-
-              const updatedOptions =
-                (attribute.options || [])
-                  .filter(
-                    (_, index) =>
-                      index !== optionIndex
-                  )
-
-              return {
-                ...attribute,
-                options: updatedOptions
-              }
-
+    setProducts(previous =>
+      previous.map((product, i) =>
+        i === productIndex
+          ? {
+              ...product,
+              attributes: product.attributes.map(
+                (attribute, index) =>
+                  index === attributeIndex
+                    ? {
+                        ...attribute,
+                        options: (
+                          attribute.options || []
+                        ).filter(
+                          (_, indexToRemove) =>
+                            indexToRemove !== optionIndex
+                        )
+                      }
+                    : attribute
+              )
             }
-          )
-
-        return {
-          ...product,
-          attributes: updatedAttributes
-        }
-
-      })
+          : product
+      )
     )
 
     setUploaded(false)
   }
 
+  // ==============================
+  // GUARDAR PRODUCTOS
+  // ==============================
 
-  /* ========================================
-     SUBIR TODOS LOS PRODUCTOS
-  ======================================== */
-
-  async function handleSubmit(e) {
-
-    e.preventDefault()
+  async function handleSubmit(event) {
+    event.preventDefault()
 
     if (uploading) return
 
-
-    /* ========================================
-       VALIDACIÓN BÁSICA
-    ======================================== */
-
-    const invalidProduct = products.some(product => {
-
-      return (
+    const invalidProduct = products.some(
+      product =>
         !product.name.trim() ||
-        !product.price ||
         !product.category.trim()
-      )
-
-    })
-
+    )
 
     if (invalidProduct) {
-
       alert(
-        "Completá nombre, precio y categoría en todos los productos."
+        "Completá nombre y categoría en todos los productos."
       )
-
       return
     }
 
+    let validatedProducts
 
-    /* ========================================
-       VALIDAR CARACTERÍSTICAS
-    ======================================== */
+    try {
+      validatedProducts = products.map(
+        (product, index) => {
+          try {
+            return {
+              ...validateProductNumbers(product),
+              category: categoryState.validateCategory(
+                product.category
+              )
+            }
+          } catch (error) {
+            throw new Error(
+              `Producto ${index + 1}: ${error.message}`
+            )
+          }
+        }
+      )
+    } catch (error) {
+      alert(error.message)
+      return
+    }
 
     for (const product of products) {
-
       for (const attribute of product.attributes) {
-
         if (
           attribute.type === "info" &&
           !attribute.value.trim()
         ) {
-
           alert(
             `Completá el valor de "${attribute.name}" en "${product.name}".`
           )
-
           return
         }
 
-
         if (attribute.type === "select") {
-
-          const validOptions =
-            (attribute.options || [])
-              .map(option => option.trim())
-              .filter(Boolean)
+          const validOptions = (
+            attribute.options || []
+          )
+            .map(option => option.trim())
+            .filter(Boolean)
 
           if (validOptions.length === 0) {
-
             alert(
               `Agregá al menos una opción para "${attribute.name}" en "${product.name}".`
             )
-
             return
           }
-
         }
-
       }
-
     }
 
-
     setUploading(true)
-
     setUploaded(false)
 
-
     try {
-
-      /* ========================================
-         CREAR PRODUCTOS
-      ======================================== */
-
       await Promise.all(
-
-        products.map(product => {
-
-          /*
-           * LIMPIAR CARACTERÍSTICAS
-           */
-
-          const cleanedAttributes =
-            product.attributes.map(attribute => {
-
+        products.map((product, index) => {
+          const attributes = product.attributes.map(
+            attribute => {
               if (attribute.type === "select") {
-
                 return {
                   name: attribute.name.trim(),
-
                   type: "select",
-
-                  options:
-                    (attribute.options || [])
-                      .map(option => option.trim())
-                      .filter(Boolean),
-
+                  options: (
+                    attribute.options || []
+                  )
+                    .map(option => option.trim())
+                    .filter(Boolean),
                   required:
                     attribute.required !== false
                 }
-
               }
 
               return {
                 name: attribute.name.trim(),
-
                 type: "info",
-
-                value:
-                  attribute.value.trim()
+                value: attribute.value.trim()
               }
+            }
+          )
 
-            })
+          const additionalImages = product.images
+            .map(image => image.trim())
+            .filter(Boolean)
 
+          const mainImage = product.image.trim()
 
-          /*
-           * LIMPIAR IMÁGENES
-           *
-           * La primera imagen es la principal.
-           * Las demás quedan como imágenes adicionales.
-           */
-
-          const additionalImages =
-            product.images
-              .map(image => image.trim())
-              .filter(Boolean)
-
-
-          const allImages =
-            product.image.trim()
-              ? [
-                  product.image.trim(),
-                  ...additionalImages
-                ]
-              : additionalImages
-
+          const images = mainImage
+            ? [mainImage, ...additionalImages]
+            : additionalImages
 
           return addDoc(
             collection(db, "products"),
             {
-
-              name:
-                product.name.trim(),
-
-              price:
-                Number(product.price),
-
-              /*
-               * IMAGEN PRINCIPAL
-               */
-
-              image:
-                product.image.trim(),
-
-              /*
-               * TODAS LAS IMÁGENES
-               */
-
-              images:
-                allImages,
-
-              category:
-                product.category.trim(),
-
-              description:
-                product.description.trim(),
-
-              stock:
-                Number(product.stock) || 0,
-
-              active:
-                product.active !== false,
-
-              /*
-               * CARACTERÍSTICAS
-               */
-
-              attributes:
-                cleanedAttributes
-
+              name: product.name.trim(),
+              price: validatedProducts[index].price,
+              image: mainImage,
+              images,
+              category: validatedProducts[index].category,
+              description: product.description.trim(),
+              stock: validatedProducts[index].stock,
+              active: product.active !== false,
+              attributes
             }
-
           )
-
         })
-
       )
-
-
-      /* ========================================
-         ÉXITO
-      ======================================== */
 
       setUploaded(true)
 
-
       setTimeout(() => {
-
         onBack()
-
       }, 1200)
-
-
     } catch (error) {
-
       console.error(
         "Error al crear productos:",
         error
@@ -861,43 +572,24 @@ function ProductForm({ onBack }) {
       alert(
         "Ocurrió un error al subir los productos. Revisá la consola."
       )
-
     } finally {
-
       setUploading(false)
-
     }
-
   }
 
-
-  /* ========================================
-     RENDER
-  ======================================== */
+  // ==============================
+  // VISTA
+  // ==============================
 
   return (
-
     <div className="product-form-page">
-
-
-      {/* ========================================
-          HEADER
-      ======================================== */}
-
       <div className="product-form-header">
-
         <div>
-
-          <h2>
-            Agregar productos
-          </h2>
-
+          <h2>Agregar productos</h2>
           <p>
             Creá uno o varios productos para tu catálogo
           </p>
-
         </div>
-
 
         <button
           type="button"
@@ -906,56 +598,27 @@ function ProductForm({ onBack }) {
         >
           ← Volver
         </button>
-
       </div>
-
-
-      {/* ========================================
-          FORMULARIO
-      ======================================== */}
 
       <form
         className="products-create-form"
         onSubmit={handleSubmit}
       >
-
-
-        {/* ========================================
-            PRODUCTOS
-        ======================================== */}
-
         <div className="products-create-list">
-
-
           {products.map((product, index) => (
-
             <article
               key={index}
               className="product-create-card"
             >
-
-
-              {/* ========================================
-                  CARD HEADER
-              ======================================== */}
-
               <div className="product-create-header">
-
                 <div>
-
                   <span className="product-create-number">
                     Producto {index + 1}
                   </span>
-
-                  <h3>
-                    Nuevo producto
-                  </h3>
-
+                  <h3>Nuevo producto</h3>
                 </div>
 
-
                 {products.length > 1 && (
-
                   <button
                     type="button"
                     className="product-remove"
@@ -965,123 +628,85 @@ function ProductForm({ onBack }) {
                   >
                     × Quitar
                   </button>
-
                 )}
-
               </div>
 
-
-              {/* ========================================
-                  CAMPOS
-              ======================================== */}
-
               <div className="product-create-fields">
-
-
-                {/* NOMBRE */}
-
                 <div className="product-create-field">
-
-                  <label>
-                    Nombre
-                  </label>
-
+                  <label>Nombre</label>
                   <input
                     type="text"
                     value={product.name}
                     placeholder="Ej: Mouse inalámbrico"
-                    onChange={e =>
+                    onChange={event =>
                       handleChange(
                         index,
                         "name",
-                        e.target.value
+                        event.target.value
                       )
                     }
                   />
-
                 </div>
 
-
-                {/* PRECIO */}
-
                 <div className="product-create-field">
-
-                  <label>
-                    Precio
-                  </label>
-
+                  <label>Precio</label>
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
                     value={product.price}
                     placeholder="Ej: 15000"
-                    onChange={e =>
+                    onChange={event =>
                       handleChange(
                         index,
                         "price",
-                        e.target.value
+                        event.target.value
                       )
                     }
                   />
-
                 </div>
 
-
-                {/* CATEGORÍA */}
-
                 <div className="product-create-field">
-
-                  <label>
+                  <label
+                    htmlFor={`create-category-${index}`}
+                  >
                     Categoría
                   </label>
 
-                  <input
-                    type="text"
+                  <ProductCategorySelect
+                    id={`create-category-${index}`}
                     value={product.category}
-                    placeholder="Ej: Mouse"
-                    onChange={e =>
+                    categoryState={categoryState}
+                    disabled={uploading}
+                    onChange={value =>
                       handleChange(
                         index,
                         "category",
-                        e.target.value
+                        value
                       )
                     }
                   />
-
                 </div>
 
-
-                {/* STOCK */}
-
                 <div className="product-create-field">
-
-                  <label>
-                    Stock
-                  </label>
-
+                  <label>Stock</label>
                   <input
                     type="number"
                     min="0"
+                    step="1"
                     value={product.stock}
                     placeholder="0"
-                    onChange={e =>
+                    onChange={event =>
                       handleChange(
                         index,
                         "stock",
-                        e.target.value
+                        event.target.value
                       )
                     }
                   />
-
                 </div>
 
-
-                {/* ========================================
-                    IMAGEN PRINCIPAL
-                ======================================== */}
-
                 <div className="product-create-field product-create-field-full">
-
                   <label>
                     URL de imagen principal
                   </label>
@@ -1090,50 +715,41 @@ function ProductForm({ onBack }) {
                     type="text"
                     value={product.image}
                     placeholder="https://..."
-                    onChange={e =>
+                    onChange={event =>
                       handleChange(
                         index,
                         "image",
-                        e.target.value
+                        event.target.value
                       )
                     }
                   />
-
                 </div>
 
-
-                {/* ========================================
-                    IMÁGENES ADICIONALES
-                ======================================== */}
-
                 <div className="product-create-field product-create-field-full">
-
-                  <label>
-                    Imágenes adicionales
-                  </label>
+                  <label>Imágenes adicionales</label>
 
                   <p className="product-images-help">
-                    Podés agregar todas las fotos que necesites usando sus URLs.
+                    Podés agregar todas las fotos que
+                    necesites usando sus URLs.
                   </p>
-
 
                   {product.images.map(
                     (image, imageIndex) => (
-
                       <div
                         key={imageIndex}
                         className="product-image-row"
                       >
-
                         <input
                           type="text"
                           value={image}
-                          placeholder={`URL de imagen adicional ${imageIndex + 1}`}
-                          onChange={e =>
+                          placeholder={
+                            `URL de imagen adicional ${imageIndex + 1}`
+                          }
+                          onChange={event =>
                             handleImageChange(
                               index,
                               imageIndex,
-                              e.target.value
+                              event.target.value
                             )
                           }
                         />
@@ -1150,12 +766,9 @@ function ProductForm({ onBack }) {
                         >
                           ×
                         </button>
-
                       </div>
-
                     )
                   )}
-
 
                   <button
                     type="button"
@@ -1166,80 +779,48 @@ function ProductForm({ onBack }) {
                   >
                     ＋ Agregar otra imagen
                   </button>
-
                 </div>
 
-
-                {/* DESCRIPCIÓN */}
-
                 <div className="product-create-field product-create-field-full">
-
-                  <label>
-                    Descripción
-                  </label>
+                  <label>Descripción</label>
 
                   <textarea
                     value={product.description}
                     rows="4"
                     placeholder="Escribí una descripción general del producto..."
-                    onChange={e =>
+                    onChange={event =>
                       handleChange(
                         index,
                         "description",
-                        e.target.value
+                        event.target.value
                       )
                     }
                   />
-
                 </div>
-
-
               </div>
 
-
-              {/* ========================================
-                  CARACTERÍSTICAS
-              ======================================== */}
-
               <div className="product-attributes-section">
-
                 <div className="product-attributes-header">
-
                   <div>
-
                     <h4>
                       Características y opciones
                     </h4>
-
                     <p>
                       Agregá información adicional
                       o datos que el cliente deba elegir.
                     </p>
-
                   </div>
-
                 </div>
 
-
-                {/* CARACTERÍSTICAS EXISTENTES */}
-
                 {product.attributes.length > 0 && (
-
                   <div className="product-attributes-list">
-
                     {product.attributes.map(
                       (attribute, attributeIndex) => (
-
                         <div
                           key={attributeIndex}
                           className="product-attribute-card"
                         >
-
-
-                          {/* HEADER */}
-
                           <div className="product-attribute-top">
-
                             <strong>
                               {attribute.name}
                             </strong>
@@ -1256,98 +837,70 @@ function ProductForm({ onBack }) {
                             >
                               ×
                             </button>
-
                           </div>
 
-
-                          {/* TIPO */}
-
                           <div className="product-attribute-type">
-
                             <label>
                               Tipo de característica
                             </label>
 
                             <select
                               value={attribute.type}
-                              onChange={e =>
+                              onChange={event =>
                                 handleAttributeTypeChange(
                                   index,
                                   attributeIndex,
-                                  e.target.value
+                                  event.target.value
                                 )
                               }
                             >
-
                               <option value="info">
                                 Información
                               </option>
-
                               <option value="select">
                                 El cliente debe elegir
                               </option>
-
                             </select>
-
                           </div>
 
-
-                          {/* INFORMACIÓN */}
-
                           {attribute.type === "info" && (
-
                             <div className="product-attribute-value">
-
-                              <label>
-                                Valor
-                              </label>
+                              <label>Valor</label>
 
                               <input
                                 type="text"
-                                value={
-                                  attribute.value || ""
-                                }
-                                placeholder={`Ej: ${
+                                value={attribute.value || ""}
+                                placeholder={
                                   attribute.name === "Marca"
-                                    ? "Samsung"
+                                    ? "Ej: Samsung"
                                     : attribute.name === "Garantía"
-                                    ? "6 meses"
-                                    : "Escribí el valor..."
-                                }`}
-                                onChange={e =>
+                                      ? "Ej: 6 meses"
+                                      : "Escribí el valor..."
+                                }
+                                onChange={event =>
                                   handleAttributeChange(
                                     index,
                                     attributeIndex,
                                     "value",
-                                    e.target.value
+                                    event.target.value
                                   )
                                 }
                               />
-
                             </div>
-
                           )}
 
-
-                          {/* OPCIONES */}
-
                           {attribute.type === "select" && (
-
                             <div className="product-attribute-options">
-
                               <label>
                                 Opciones disponibles
                               </label>
 
-
                               {(attribute.options || []).map(
                                 (option, optionIndex) => (
-
                                   <div
                                     key={optionIndex}
                                     className="product-option-row"
                                   >
-
                                     <input
                                       type="text"
                                       value={option}
@@ -1355,15 +908,15 @@ function ProductForm({ onBack }) {
                                         attribute.name === "Color"
                                           ? "Ej: Negro"
                                           : attribute.name === "Talle"
-                                          ? "Ej: M"
-                                          : "Escribí una opción..."
+                                            ? "Ej: M"
+                                            : "Escribí una opción..."
                                       }
-                                      onChange={e =>
+                                      onChange={event =>
                                         handleOptionChange(
                                           index,
                                           attributeIndex,
                                           optionIndex,
-                                          e.target.value
+                                          event.target.value
                                         )
                                       }
                                     />
@@ -1381,12 +934,9 @@ function ProductForm({ onBack }) {
                                     >
                                       ×
                                     </button>
-
                                   </div>
-
                                 )
                               )}
-
 
                               <button
                                 type="button"
@@ -1401,20 +951,18 @@ function ProductForm({ onBack }) {
                                 ＋ Agregar opción
                               </button>
 
-
                               <label className="product-required-option">
-
                                 <input
                                   type="checkbox"
                                   checked={
                                     attribute.required !== false
                                   }
-                                  onChange={e =>
+                                  onChange={event =>
                                     handleAttributeChange(
                                       index,
                                       attributeIndex,
                                       "required",
-                                      e.target.checked
+                                      event.target.checked
                                     )
                                   }
                                 />
@@ -1422,110 +970,64 @@ function ProductForm({ onBack }) {
                                 <span>
                                   El cliente debe elegir una opción
                                 </span>
-
                               </label>
-
                             </div>
-
                           )}
-
                         </div>
-
                       )
                     )}
-
                   </div>
-
                 )}
 
-
-                {/* AGREGAR CARACTERÍSTICA */}
-
                 <div className="product-add-attribute">
-
                   <select
                     defaultValue=""
-                    onChange={e => {
-
-                      const value =
-                        e.target.value
+                    onChange={event => {
+                      const value = event.target.value
 
                       if (!value) return
 
                       if (value === "__custom__") {
-
                         handleAddCustomAttribute(index)
-
                       } else {
-
-                        handleAddAttribute(
-                          index,
-                          value
-                        )
-
+                        handleAddAttribute(index, value)
                       }
 
-                      /*
-                       * Volvemos el selector
-                       * a su estado inicial.
-                       */
-
-                      e.target.value = ""
-
+                      event.target.value = ""
                     }}
                   >
-
                     <option value="">
                       ＋ Agregar característica...
                     </option>
 
-                    {predefinedAttributes.map(
-                      attribute => (
-
-                        <option
-                          key={attribute}
-                          value={attribute}
-                        >
-                          {attribute}
-                        </option>
-
-                      )
-                    )}
+                    {predefinedAttributes.map(attribute => (
+                      <option
+                        key={attribute}
+                        value={attribute}
+                      >
+                        {attribute}
+                      </option>
+                    ))}
 
                     <option value="__custom__">
                       ✨ Crear característica personalizada
                     </option>
-
                   </select>
-
                 </div>
-
-
               </div>
 
-
-              {/* ========================================
-                  ESTADO
-              ======================================== */}
-
               <div className="product-create-field product-status-field">
-
-                <label>
-                  Estado
-                </label>
+                <label>Estado</label>
 
                 <label className="product-create-active">
-
                   <input
                     type="checkbox"
-                    checked={
-                      product.active !== false
-                    }
-                    onChange={e =>
+                    checked={product.active !== false}
+                    onChange={event =>
                       handleChange(
                         index,
                         "active",
-                        e.target.checked
+                        event.target.checked
                       )
                     }
                   />
@@ -1535,58 +1037,27 @@ function ProductForm({ onBack }) {
                       ? "Producto activo"
                       : "Producto inactivo"}
                   </span>
-
                 </label>
-
               </div>
 
-
-              {/* ========================================
-                  PREVISUALIZACIÓN
-              ======================================== */}
-
               {product.image && (
-
                 <div className="product-create-preview">
-
-                  <span>
-                    Vista previa
-                  </span>
+                  <span>Vista previa</span>
 
                   <img
                     src={product.image}
-                    alt={
-                      product.name ||
-                      "Vista previa"
-                    }
-                    onError={e => {
-                      e.currentTarget.style.display =
-                        "none"
+                    alt={product.name || "Vista previa"}
+                    onError={event => {
+                      event.currentTarget.style.display = "none"
                     }}
                   />
-
                 </div>
-
               )}
-
-
             </article>
-
           ))}
-
-
         </div>
 
-
-        {/* ========================================
-            ACCIONES
-        ======================================== */}
-
         <div className="products-create-actions">
-
-
-          {/* CREAR OTRO */}
-
           <button
             type="button"
             className="product-add-more"
@@ -1596,41 +1067,32 @@ function ProductForm({ onBack }) {
             ＋ Crear otro producto
           </button>
 
-
-          {/* SUBIR */}
-
           <button
             type="submit"
             className={`products-upload ${
-              uploaded
-                ? "products-uploaded"
-                : ""
+              uploaded ? "products-uploaded" : ""
             }`}
-            disabled={uploading}
+            disabled={
+              uploading ||
+              categoryState.loading ||
+              Boolean(categoryState.error) ||
+              categoryState.categories.length === 0
+            }
           >
-
             {uploading
               ? "⏳ Subiendo productos..."
               : uploaded
-              ? "✓ Productos subidos"
-              : `Subir ${products.length} ${
-                  products.length === 1
-                    ? "producto"
-                    : "productos"
-                }`}
-
+                ? "✓ Productos subidos"
+                : `Subir ${products.length} ${
+                    products.length === 1
+                      ? "producto"
+                      : "productos"
+                  }`}
           </button>
-
-
         </div>
-
-
       </form>
-
     </div>
-
   )
 }
-
 
 export default ProductForm
