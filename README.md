@@ -1,16 +1,62 @@
-# React + Vite
+# Ecommerce PRO
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Demo de una tienda online desarrollada por **Cristel Frowein**, pensada para mostrar una experiencia de compra completa y un panel de administración para gestionar el negocio.
 
-Currently, two official plugins are available:
+El diseño, la identidad visual y las funcionalidades de cada implementación se acuerdan según las necesidades del cliente.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Experiencia de compra
 
-## React Compiler
+- Diseño adaptable a celulares, tablets y computadoras.
+- Catálogo organizado por categorías.
+- Buscador de productos y ordenamiento por nombre o precio.
+- Productos destacados y banners.
+- Detalle del producto con galería de imágenes.
+- Selección de opciones como colores, talles o tamaños, con cantidades por combinación.
+- Carrito persistente y validación de disponibilidad.
+- Formulario de compra con datos del cliente y notas.
+- Registro del pedido y envío del resumen por WhatsApp.
+- Acceso directo a consultas por WhatsApp.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Panel de administración
 
-## Expanding the ESLint configuration
+- Creación, edición y eliminación de productos.
+- Gestión de precios, stock y disponibilidad.
+- Carga de imágenes mediante URL.
+- Configuración de características y opciones de productos.
+- Administración de categorías y banners.
+- Visualización de pedidos y datos del cliente.
+- Búsqueda y filtrado de pedidos por estado.
+- Acciones para completar o cancelar pedidos pendientes.
+- Descuento de stock al completar un pedido.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Tecnologías
+
+- React
+- Vite
+- React Router
+- Firebase Firestore
+- CSS
+- React Icons
+- React Toastify
+
+## Alcance de la demo
+
+Esta versión permite recorrer el catálogo, seleccionar productos y probar el flujo de pedidos mediante WhatsApp. No procesa pagos en línea.
+
+Los pedidos pendientes no reservan stock. La disponibilidad se actualiza al marcar un pedido como completado desde el panel de administración.
+
+El acceso administrativo es demostrativo. Las implementaciones para clientes contemplan la autenticación y los permisos correspondientes antes de su puesta en producción.
+
+## Desarrollo y consultas
+
+¿Querés una tienda online para tu negocio?
+
+Podés conocer otros proyectos y contactarme desde mi [perfil de GitHub](https://github.com/CristelFrowein).
+
+**Desarrollado por Cristel Frowein.**
+
+## Derechos de uso
+
+© Cristel Frowein. Todos los derechos reservados.
+
+Este repositorio se publica para exhibición y evaluación del proyecto. Su publicación no concede autorización para copiar, modificar, redistribuir o comercializar el código, el diseño o sus recursos. Cualquier uso requiere autorización expresa de su autora.
