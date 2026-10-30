@@ -1,152 +1,262 @@
 import process from "node:process"
+import { createHash } from "node:crypto"
 
-async function request(path, options = {}) {
-  const token = process.env.MP_ACCESS_TOKEN?.trim()
+import {
+  FieldValue
+} from "firebase-admin/firestore"
 
-  if (!token) {
-    throw new Error(
-      "Falta MP_ACCESS_TOKEN en el servidor."
-    )
+import {
+  getAdminDb
+} from "../server/firebaseAdmin.js"
+
+import {
+  buildOrderItems,
+  checkoutError,
+  parseCheckout
+} from "../server/checkoutValidation.js"
+
+import {
+  createDemoPreference
+} from "../server/mercadoPago.js"
+
+export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "no-store")
+
+  if (!["GET", "POST"].includes(req.method)) {
+    res.setHeader("Allow", "GET, POST")
+
+    return res.status(405).json({
+      message: "Método no permitido."
+    })
   }
 
-  const response = await fetch(
-    `https://api.mercadopago.com${path}`,
-    {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      },
-      signal: AbortSignal.timeout(15000)
-    }
+  const requiredVariables = [
+    "APP_URL",
+    "MP_ACCESS_TOKEN",
+    "FIREBASE_PROJECT_ID",
+    "FIREBASE_CLIENT_EMAIL",
+    "FIREBASE_PRIVATE_KEY"
+  ]
+
+  const configured = requiredVariables.every(
+    name => process.env[name]?.trim()
   )
 
-  const data = await response
-    .json()
-    .catch(() => null)
-
-  if (!response.ok || !data) {
-    const error = new Error(
-      "No se pudo completar la solicitud a Mercado Pago."
-    )
-
-    error.mpStatus = response.status
-
-    throw error
+  if (req.method === "GET") {
+    return res.status(configured ? 200 : 503).json({
+      ok: configured,
+      mode: "test",
+      message: configured
+        ? "Función disponible. Falta conectar el checkout y las notificaciones."
+        : "Faltan variables del servidor."
+    })
   }
 
-  return data
-}
+  let orderRef
+  let ownsAttempt = false
 
-export async function createDemoPreference(
-  orderId,
-  order,
-  appUrl
-) {
-  const token = process.env.MP_ACCESS_TOKEN?.trim()
-
-  const sandbox = token?.startsWith("TEST-")
-
-  let sellerId = null
-
-  if (!sandbox) {
-    const seller = await request("/users/me")
-
-    if (
-      !Array.isArray(seller.tags) ||
-      !seller.tags.includes("test_user")
-    ) {
+  try {
+    if (!configured) {
       throw new Error(
-        "La demo requiere credenciales de prueba o de un vendedor de prueba."
+        "Faltan variables del servidor."
       )
     }
 
-    sellerId = seller.id
-  }
+    const appUrl = new URL(
+      process.env.APP_URL.trim()
+    )
 
-  const returnUrl =
-    `${appUrl}/pago/resultado` +
-    `?order=${encodeURIComponent(orderId)}`
+    if (appUrl.protocol !== "https:") {
+      throw new Error(
+        "APP_URL debe usar HTTPS."
+      )
+    }
 
-  const preference = await request(
-    "/checkout/preferences",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        items: order.items.map(item => ({
-          id: item.productId,
-          title: item.name.slice(0, 200),
-          description: Object.entries(
-            item.selectedAttributes
-          )
-            .map(
-              ([name, value]) =>
-                `${name}: ${value}`
+    if (
+      req.headers.origin &&
+      req.headers.origin !== appUrl.origin
+    ) {
+      throw checkoutError(
+        "Origen no permitido.",
+        403
+      )
+    }
+
+    if (
+      !req.headers["content-type"]?.includes(
+        "application/json"
+      )
+    ) {
+      throw checkoutError(
+        "La solicitud debe enviarse como JSON.",
+        415
+      )
+    }
+
+    let body = req.body
+
+    if (typeof body === "string") {
+      try {
+        body = JSON.parse(body)
+      } catch {
+        throw checkoutError(
+          "El JSON no es válido."
+        )
+      }
+    }
+
+    const input = parseCheckout(body)
+
+    const fingerprint = createHash("sha256")
+      .update(JSON.stringify(input))
+      .digest("hex")
+
+    const db = getAdminDb()
+
+    orderRef = db
+      .collection("orders")
+      .doc(`mp_${input.requestId}`)
+
+    const result = await db.runTransaction(
+      async transaction => {
+        const previous =
+          await transaction.get(orderRef)
+
+        if (previous.exists) {
+          const order = previous.data()
+
+          if (
+            order.checkoutFingerprint !==
+            fingerprint
+          ) {
+            throw checkoutError(
+              "Este intento corresponde a otro carrito.",
+              409
             )
-            .join(" · ")
-            .slice(0, 250),
-          quantity: item.quantity,
-          currency_id: "ARS",
-          unit_price: item.price
-        })),
+          }
 
-        external_reference: orderId,
+          if (
+            order.checkoutState === "ready" &&
+            order.status === "pending" &&
+            order.paymentStatus === "pending"
+          ) {
+            return {
+              existing: true,
+              order
+            }
+          }
 
-        back_urls: {
-          success: returnUrl,
-          failure: returnUrl,
-          pending: returnUrl
-        },
-
-        auto_return: "approved",
-
-        notification_url:
-          `${appUrl}/api/mp-webhook`,
-
-        metadata: {
-          order_id: orderId,
-          demo: true
+          throw checkoutError(
+            "Este intento ya fue registrado. Esperá si está procesándose; si falló, iniciá un intento nuevo.",
+            409
+          )
         }
+
+        const products = new Map()
+
+        const productIds = new Set(
+          input.items.map(item => item.productId)
+        )
+
+        // Todas las lecturas van antes de guardar.
+        for (const productId of productIds) {
+          const snapshot = await transaction.get(
+            db.collection("products").doc(productId)
+          )
+
+          if (snapshot.exists) {
+            products.set(
+              productId,
+              snapshot.data()
+            )
+          }
+        }
+
+        const validated = buildOrderItems(
+          input.items,
+          products
+        )
+
+        const order = {
+          ...validated,
+          customer: input.customer,
+          notes: input.notes,
+
+          status: "pending",
+
+          paymentMethod: "mercadopago",
+          paymentStatus: "pending",
+          paymentMode: "test",
+          currency: "ARS",
+
+          checkoutState: "creating",
+          checkoutFingerprint: fingerprint,
+
+          createdAt:
+            FieldValue.serverTimestamp()
+        }
+
+        // No reservamos ni descontamos stock.
+        transaction.set(orderRef, order)
+
+        return {
+          existing: false,
+          order
+        }
+      }
+    )
+
+    if (result.existing) {
+      return res.status(200).json({
+        orderId: orderRef.id,
+        checkoutUrl: result.order.checkoutUrl,
+        total: result.order.total,
+        mode: "test"
       })
     }
-  )
 
-  if (
-    !preference.id ||
-    (
-      sellerId &&
-      String(preference.collector_id) !==
-        String(sellerId)
+    ownsAttempt = true
+
+    const preference =
+      await createDemoPreference(
+        orderRef.id,
+        result.order,
+        appUrl.origin
+      )
+
+    await orderRef.update({
+      ...preference,
+      checkoutState: "ready",
+      updatedAt: FieldValue.serverTimestamp()
+    })
+
+    return res.status(201).json({
+      orderId: orderRef.id,
+      checkoutUrl: preference.checkoutUrl,
+      total: result.order.total,
+      mode: "test"
+    })
+  } catch (error) {
+    if (ownsAttempt && orderRef) {
+      await orderRef
+        .update({
+          checkoutState: "failed",
+          updatedAt:
+            FieldValue.serverTimestamp()
+        })
+        .catch(() => {})
+    }
+
+    console.error(
+      "Error de checkout:",
+      error.message,
+      error.mpStatus || ""
     )
-  ) {
-    throw new Error(
-      "No se pudo validar la preferencia de prueba."
-    )
-  }
 
-  const checkoutUrl = sandbox
-    ? preference.sandbox_init_point
-    : preference.init_point
-
-  const url = new URL(checkoutUrl)
-
-  const allowedHosts = [
-    "www.mercadopago.com.ar",
-    "sandbox.mercadopago.com.ar"
-  ]
-
-  if (
-    url.protocol !== "https:" ||
-    !allowedHosts.includes(url.hostname)
-  ) {
-    throw new Error(
-      "Mercado Pago no devolvió una dirección válida para Argentina."
-    )
-  }
-
-  return {
-    preferenceId: preference.id,
-    checkoutUrl: url.href,
-    collectorId: preference.collector_id
+    return res.status(error.status || 502).json({
+      message: error.status
+        ? error.message
+        : "No se pudo iniciar el pago de prueba. Revisá la configuración del servidor e intentá nuevamente."
+    })
   }
 }
