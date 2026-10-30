@@ -64,6 +64,7 @@ function ProductCard({ product }) {
       <Link
         to={`/producto/${product.id}`}
         className="product-image"
+        draggable={false}
       >
         {Number(product.discount) > 0 && (
           <span className="discount-badge">
@@ -71,11 +72,18 @@ function ProductCard({ product }) {
           </span>
         )}
 
-        <img src={image} alt={product.name} loading="lazy" />
+        <img
+          src={image}
+          alt={product.name}
+          loading="lazy"
+          draggable={false}
+        />
       </Link>
 
       <div className="product-info">
-        <h3 className="product-title">{product.name}</h3>
+        <h3 className="product-title">
+          {product.name}
+        </h3>
 
         <div className="product-price">
           {Number(product.oldPrice) > 0 && (
@@ -91,15 +99,21 @@ function ProductCard({ product }) {
 
         <div className="product-stock">
           {stock > 5 && (
-            <span className="in-stock">✔ En stock</span>
+            <span className="in-stock">
+              ✔ En stock
+            </span>
           )}
 
           {stock > 0 && stock <= 5 && (
-            <span className="low-stock">⚠ Últimas unidades</span>
+            <span className="low-stock">
+              ⚠ Últimas unidades
+            </span>
           )}
 
           {isOutOfStock && (
-            <span className="no-stock">❌ Sin stock</span>
+            <span className="no-stock">
+              ❌ Sin stock
+            </span>
           )}
         </div>
 

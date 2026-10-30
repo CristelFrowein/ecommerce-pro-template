@@ -19,16 +19,16 @@ const messages = {
     "Mercado Pago confirmó el pago ficticio. El comercio continuará con la preparación del pedido."
   ],
   pending: [
-    "Estamos esperando la confirmación",
-    "El pedido está registrado. Todavía esperamos la confirmación del pago de Mercado Pago."
+    "Tu pago está pendiente",
+    "Mercado Pago informó que el pago está pendiente. Esperá su confirmación antes de intentar pagar nuevamente."
   ],
   in_process: [
     "Pago de prueba en proceso",
-    "Mercado Pago está procesando el pago. Podés volver a consultar su estado."
+    "Mercado Pago está procesando el pago. Esperá su confirmación antes de intentar pagar nuevamente."
   ],
   authorized: [
     "Pago de prueba autorizado",
-    "El pago fue autorizado, pero todavía no está confirmado como cobrado."
+    "El pago fue autorizado, pero todavía no está confirmado como cobrado. No vuelvas a pagar este pedido por ahora."
   ],
   rejected: [
     "Pago de prueba rechazado",
@@ -193,6 +193,9 @@ function PaymentResult() {
   let description =
     "Estamos consultando el estado registrado por el servidor."
 
+  let guidance = ""
+  let cartLinkLabel = "Volver al carrito"
+
   if (!validOrder) {
     tone = "error"
     title = "Falta un pedido válido"
@@ -202,6 +205,8 @@ function PaymentResult() {
     tone = "error"
     title = "No pudimos consultar el pago"
     description = current.error
+    guidance =
+      "Si ya intentaste pagar, actualizá el estado antes de iniciar otra compra para evitar repetir el pago."
   } else if (data?.reviewRequired) {
     title = "Este pago necesita revisión"
     description =
@@ -214,10 +219,15 @@ function PaymentResult() {
     title = "No se pudo iniciar el checkout"
     description =
       "Este intento no llegó a preparar el checkout correctamente. Podés volver al carrito."
+  } else if (data && !data.verified) {
+    title = "Todavía no hay un pago confirmado"
+    description =
+      "Tu pedido quedó registrado, pero todavía no tenemos un pago verificado para mostrar."
+
+    guidance =
+      "Si saliste de Mercado Pago sin pagar, podés volver al carrito para continuar. Si ya intentaste pagar, actualizá el estado y esperá la confirmación antes de iniciar otro pago."
   } else if (data) {
-    const status = data.verified
-      ? data.paymentStatus
-      : "pending"
+    const status = data.paymentStatus
 
     const message =
       messages[status] || messages.unknown
@@ -233,6 +243,7 @@ function PaymentResult() {
       ["rejected", "cancelled"].includes(status)
     ) {
       tone = "error"
+      cartLinkLabel = "Volver al carrito e intentar nuevamente"
     }
   }
 
@@ -254,6 +265,12 @@ function PaymentResult() {
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
+
+        {guidance && (
+          <div className="payment-result-guidance">
+            <p>{guidance}</p>
+          </div>
+        )}
 
         {validOrder && (
           <p className="payment-result-id">
@@ -279,7 +296,7 @@ function PaymentResult() {
           )}
 
           <Link to="/cart">
-            Volver al carrito
+            {cartLinkLabel}
           </Link>
 
           <Link to="/">

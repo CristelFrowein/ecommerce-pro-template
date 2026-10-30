@@ -15,7 +15,8 @@ import { toast } from "react-toastify"
 
 import { db } from "../../services/firebase"
 import { useCart } from "../../hooks/useCart"
-import ProductCard from "../../components/ProductCard/ProductCard"
+
+import RelatedProducts from "./RelatedProducts"
 
 import {
   formatMoney,
@@ -92,16 +93,8 @@ function getOptions(attribute) {
   ]
 }
 
-function getQuantityError(
-  next,
-  current,
-  total,
-  available
-) {
-  if (
-    !Number.isSafeInteger(next) ||
-    next < 0
-  ) {
+function getQuantityError(next, current, total, available) {
+  if (!Number.isSafeInteger(next) || next < 0) {
     return "Ingresá una cantidad válida."
   }
 
@@ -191,17 +184,6 @@ function ProductDetailContent({ id }) {
   const [selectedImage, setSelectedImage] = useState(0)
   const [openModal, setOpenModal] = useState(false)
 
-  /*
-   * Cada fila guarda una combinación y su cantidad.
-   *
-   * Un solo atributo:
-   * Color Negro: 2
-   * Color Verde: 1
-   *
-   * Varios atributos:
-   * Negro / M: 2
-   * Verde / L: 1
-   */
   const [rows, setRows] = useState([
     {
       id: 0,
@@ -248,9 +230,7 @@ function ProductDetailContent({ id }) {
           {
             id: 0,
             quantity:
-              !hasOptions && getStock(data) > 0
-                ? 1
-                : 0,
+              !hasOptions && getStock(data) > 0 ? 1 : 0,
             selectedAttributes: {}
           }
         ])
@@ -331,8 +311,7 @@ function ProductDetailContent({ id }) {
         event.key === "ArrowRight"
       ) {
         setSelectedImage(
-          previous =>
-            (previous + 1) % images.length
+          previous => (previous + 1) % images.length
         )
       }
 
@@ -348,10 +327,7 @@ function ProductDetailContent({ id }) {
       }
     }
 
-    window.addEventListener(
-      "keydown",
-      handleKeyDown
-    )
+    window.addEventListener("keydown", handleKeyDown)
 
     return () => {
       window.removeEventListener(
@@ -415,13 +391,8 @@ function ProductDetailContent({ id }) {
     return false
   }
 
-  function changeRowQuantity(
-    rowId,
-    nextQuantity
-  ) {
-    const row = rows.find(
-      item => item.id === rowId
-    )
+  function changeRowQuantity(rowId, nextQuantity) {
+    const row = rows.find(item => item.id === rowId)
 
     if (!row) return
 
@@ -437,22 +408,12 @@ function ProductDetailContent({ id }) {
     setRows(
       rows.map(item =>
         item.id === rowId
-          ? {
-              ...item,
-              quantity: nextQuantity
-            }
+          ? { ...item, quantity: nextQuantity }
           : item
       )
     )
   }
 
-  /*
-   * Para productos con una sola característica:
-   * cada alternativa tiene su contador.
-   *
-   * option === null representa "Sin especificar"
-   * y solo se muestra si el atributo es opcional.
-   */
   function changeSingleOptionQuantity(
     attribute,
     option,
@@ -466,10 +427,7 @@ function ProductDetailContent({ id }) {
     )
 
     if (existing) {
-      changeRowQuantity(
-        existing.id,
-        nextQuantity
-      )
+      changeRowQuantity(existing.id, nextQuantity)
       return
     }
 
@@ -488,9 +446,7 @@ function ProductDetailContent({ id }) {
         selectedAttributes:
           option === null
             ? {}
-            : {
-                [attribute.name]: option
-              }
+            : { [attribute.name]: option }
       }
     ])
   }
@@ -543,13 +499,11 @@ function ProductDetailContent({ id }) {
 
         if (
           !required &&
-          selectedAttributes[attributeName] ===
-            option
+          selectedAttributes[attributeName] === option
         ) {
           delete selectedAttributes[attributeName]
         } else {
-          selectedAttributes[attributeName] =
-            option
+          selectedAttributes[attributeName] = option
         }
 
         return {
@@ -588,7 +542,6 @@ function ProductDetailContent({ id }) {
     }
 
     try {
-      // Las opciones con cantidad cero no se agregan.
       const activeRows = rows.filter(
         row => row.quantity > 0
       )
@@ -644,7 +597,6 @@ function ProductDetailContent({ id }) {
       const remainingStock =
         available - totalQuantity
 
-      // Reiniciamos el selector después de agregar.
       setRows([
         {
           id: nextRowId.current++,
@@ -699,8 +651,7 @@ function ProductDetailContent({ id }) {
   const stock = getStock(product)
 
   const isAvailable =
-    product.active !== false &&
-    stock > 0
+    product.active !== false && stock > 0
 
   const informativeAttributes =
     Array.isArray(product.attributes)
@@ -716,9 +667,7 @@ function ProductDetailContent({ id }) {
   )
 
   const currentImage =
-    images[selectedImage] ||
-    images[0] ||
-    ""
+    images[selectedImage] || images[0] || ""
 
   const singleAttribute =
     selectableAttributes.length === 1
@@ -731,7 +680,8 @@ function ProductDetailContent({ id }) {
     totalQuantity > 0 &&
     totalQuantity <= available
 
-  const noOptions = selectableAttributes.length === 0
+  const noOptions =
+    selectableAttributes.length === 0
 
   return (
     <main className="product-detail container">
@@ -765,9 +715,7 @@ function ProductDetailContent({ id }) {
                 src={currentImage}
                 alt={product.name}
                 className="product-gallery-main-image"
-                onClick={() =>
-                  setOpenModal(true)
-                }
+                onClick={() => setOpenModal(true)}
               />
             ) : (
               <div className="product-gallery-placeholder">
@@ -911,13 +859,8 @@ function ProductDetailContent({ id }) {
             {singleAttribute && (
               <div className="purchase-options-section">
                 <div className="purchase-section-heading">
-                  <h3>
-                    {singleAttribute.name}
-                  </h3>
-
-                  <span>
-                    Cantidad por opción
-                  </span>
+                  <h3>{singleAttribute.name}</h3>
+                  <span>Cantidad por opción</span>
                 </div>
 
                 <div className="purchase-options-list">
@@ -973,7 +916,7 @@ function ProductDetailContent({ id }) {
                     }
                   )}
 
-                  {/* OPCIÓN SIN ELECCIÓN, SI ES OPCIONAL */}
+                  {/* OPCIÓN SIN ELECCIÓN */}
                   {singleAttribute.required === false &&
                     (() => {
                       const unspecified = rows.find(
@@ -998,6 +941,7 @@ function ProductDetailContent({ id }) {
                             <strong>
                               Sin especificar
                             </strong>
+
                             <span>
                               {singleAttribute.name} opcional
                             </span>
@@ -1290,28 +1234,7 @@ function ProductDetailContent({ id }) {
       </section>
 
       {/* PRODUCTOS RELACIONADOS */}
-      {related.length > 0 && (
-        <section className="related-section">
-          <div className="related-header">
-            <div>
-              <span>
-                TAMBIÉN TE PUEDE INTERESAR
-              </span>
-
-              <h2>Productos relacionados</h2>
-            </div>
-          </div>
-
-          <div className="products-grid">
-            {related.map(item => (
-              <ProductCard
-                key={item.id}
-                product={item}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      <RelatedProducts products={related} />
 
       {/* MODAL DE IMAGEN */}
       {openModal && (
@@ -1324,9 +1247,7 @@ function ProductDetailContent({ id }) {
         >
           <div
             className="product-image-modal-content"
-            onClick={event =>
-              event.stopPropagation()
-            }
+            onClick={event => event.stopPropagation()}
           >
             <button
               type="button"
@@ -1368,8 +1289,7 @@ function ProductDetailContent({ id }) {
                 onClick={() =>
                   setSelectedImage(
                     previous =>
-                      (previous + 1) %
-                      images.length
+                      (previous + 1) % images.length
                   )
                 }
               >

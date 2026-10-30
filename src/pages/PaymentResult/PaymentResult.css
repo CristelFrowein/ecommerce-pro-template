@@ -2,8 +2,16 @@
   padding-block: 40px;
 }
 
+.payment-result,
+.payment-result *,
+.payment-result *::before,
+.payment-result *::after {
+  box-sizing: border-box;
+}
+
 .payment-result-card {
   max-width: 720px;
+  min-width: 0;
   margin-inline: auto;
 
   padding: clamp(22px, 5vw, 40px);
@@ -30,7 +38,7 @@
   display: inline-block;
   margin-bottom: 14px;
 
-  color: var(--color-text-light, #666);
+  color: var(--color-text, #3e3e3e);
 
   font-size: 13px;
   font-weight: 700;
@@ -39,21 +47,47 @@
 .payment-result-card h1 {
   margin: 0 0 14px;
 
+  color: var(--color-text, #3e3e3e);
+
   font-size: clamp(24px, 5vw, 32px);
   line-height: 1.2;
-}
-
-.payment-result-card p {
-  line-height: 1.65;
-}
-
-.payment-result-id {
   overflow-wrap: anywhere;
 }
 
-.payment-result-note {
-  color: var(--color-text-light, #666);
+.payment-result-card p {
+  color: var(--color-text, #3e3e3e);
+  line-height: 1.65;
+}
+
+.payment-result-guidance {
+  margin-block: 20px;
+  padding: 14px 16px;
+
+  border: 1px solid var(--color-border, #ddd);
+  border-left: 4px solid #b78419;
+  border-radius: 8px;
+
+  background: var(--color-bg, #fafaf8);
+}
+
+.payment-result-guidance p {
+  margin: 0;
   font-size: 14px;
+}
+
+.payment-result-id {
+  margin-block: 18px 12px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.payment-result-card .payment-result-note {
+  margin-bottom: 0;
+
+  color: var(--color-text, #3e3e3e);
+
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 .payment-result-actions {
@@ -70,6 +104,7 @@
   align-items: center;
   justify-content: center;
 
+  min-width: 0;
   min-height: 44px;
   padding: 11px 16px;
 
@@ -81,9 +116,11 @@
 
   font: inherit;
   font-weight: 600;
+  line-height: 1.5;
 
   text-align: center;
   text-decoration: none;
+  overflow-wrap: anywhere;
 
   cursor: pointer;
 }
@@ -98,7 +135,22 @@
   outline-offset: 3px;
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .payment-result-actions button:hover {
+    background: var(--color-primary-dark, #4f5443);
+    border-color: var(--color-primary-dark, #4f5443);
+  }
+
+  .payment-result-actions a:hover {
+    background: var(--color-bg, #fafaf8);
+  }
+}
+
 @media (max-width: 520px) {
+  .payment-result {
+    padding-block: 24px;
+  }
+
   .payment-result-actions {
     flex-direction: column;
   }
@@ -106,5 +158,9 @@
   .payment-result-actions button,
   .payment-result-actions a {
     width: 100%;
+  }
+
+  .payment-result-guidance {
+    padding: 12px;
   }
 }
