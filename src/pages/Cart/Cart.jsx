@@ -12,7 +12,12 @@ import {
 import { db } from "../../services/firebase"
 import { storeConfig } from "../../config/storeConfig"
 import { useCart } from "../../hooks/useCart"
+
 import CheckoutForm from "../../components/CheckoutForm/CheckoutForm"
+
+import {
+  startDemoCheckout
+} from "../../services/paymentService"
 
 import {
   formatMoney,
@@ -40,13 +45,23 @@ function Cart() {
   const submittingRef = useRef(false)
 
   function changeQuantity(item, quantity) {
-    const result = updateQuantity(item.cartItemId, quantity)
+    const result = updateQuantity(
+      item.cartItemId,
+      quantity
+    )
 
-    if (!result.ok) toast.warning(result.message)
+    if (!result.ok) {
+      toast.warning(result.message)
+    }
   }
 
   async function handleConfirmOrder(formData) {
-    if (submittingRef.current || cart.length === 0) return
+    if (
+      submittingRef.current ||
+      cart.length === 0
+    ) {
+      return
+    }
 
     const customer = {
       name: formData.name.trim(),
@@ -62,7 +77,36 @@ function Cart() {
     submittingRef.current = true
     setSubmitting(true)
 
+    let redirecting = false
+
     try {
+      const notes = formData.notes.trim()
+
+      if (
+        formData.paymentMethod === "mercadopago"
+      ) {
+        const result = await startDemoCheckout({
+          cart,
+          customer,
+          notes
+        })
+
+        // El carrito se conserva durante el pago.
+        redirecting = true
+
+        window.location.assign(
+          result.redirectUrl
+        )
+
+        return
+      }
+
+      if (formData.paymentMethod !== "whatsapp") {
+        throw new Error(
+          "Elegí cómo querés continuar con el pedido."
+        )
+      }
+
       const items = cart.map(item => ({
         id: item.productId,
         productId: item.productId,
@@ -70,89 +114,107 @@ function Cart() {
         name: item.name,
         price: Number(item.price),
         quantity: item.quantity,
-        selectedAttributes: getSelections(item.selectedAttributes)
+        selectedAttributes: getSelections(
+          item.selectedAttributes
+        )
       }))
 
       const quantities = groupQuantities(items)
       const orderRef = doc(collection(db, "orders"))
-      const notes = formData.notes.trim()
 
       const total = items.reduce(
-        (sum, item) => sum + item.price * item.quantity,
+        (sum, item) =>
+          sum + item.price * item.quantity,
         0
       )
 
-      await runTransaction(db, async transaction => {
-        const currentProducts = new Map()
+      await runTransaction(
+        db,
+        async transaction => {
+          const currentProducts = new Map()
 
-        // Todas las lecturas ocurren antes de guardar.
-        for (const [productId, quantity] of quantities) {
-          const snapshot = await transaction.get(
-            doc(db, "products", productId)
-          )
-
-          if (!snapshot.exists()) {
-            throw new Error(
-              "Un producto ya no existe. Quitalo del carrito para continuar."
-            )
-          }
-
-          const product = {
-            ...snapshot.data(),
-            id: snapshot.id
-          }
-
-          if (product.active === false) {
-            throw new Error(
-              `"${product.name}" ya no está disponible. Quitalo del carrito.`
-            )
-          }
-
-          if (quantity > getStock(product)) {
-            throw new Error(
-              `Stock insuficiente de "${product.name}". Hay ${getStock(product)} unidades disponibles entre todas sus opciones.`
-            )
-          }
-
-          currentProducts.set(productId, product)
-        }
-
-        for (const item of items) {
-          const product = currentProducts.get(item.productId)
-          const currentPrice = Number(product.price)
-
-          if (
-            !Number.isFinite(item.price) ||
-            item.price < 0 ||
-            !Number.isFinite(currentPrice) ||
-            currentPrice < 0
+          for (
+            const [productId, quantity] of quantities
           ) {
-            throw new Error(
-              `"${item.name}" no tiene un precio válido.`
+            const snapshot = await transaction.get(
+              doc(db, "products", productId)
+            )
+
+            if (!snapshot.exists()) {
+              throw new Error(
+                "Un producto ya no existe. Quitalo del carrito para continuar."
+              )
+            }
+
+            const product = {
+              ...snapshot.data(),
+              id: snapshot.id
+            }
+
+            if (product.active === false) {
+              throw new Error(
+                `"${product.name}" ya no está disponible. Quitalo del carrito.`
+              )
+            }
+
+            if (quantity > getStock(product)) {
+              throw new Error(
+                `Stock insuficiente de "${product.name}". Hay ${getStock(product)} unidades disponibles entre todas sus opciones.`
+              )
+            }
+
+            currentProducts.set(
+              productId,
+              product
             )
           }
 
-          if (currentPrice !== item.price) {
-            throw new Error(
-              `El precio de "${product.name}" cambió. Quitalo del carrito y agregalo nuevamente para actualizarlo.`
+          for (const item of items) {
+            const product = currentProducts.get(
+              item.productId
             )
+
+            const currentPrice = Number(
+              product.price
+            )
+
+            if (
+              !Number.isFinite(item.price) ||
+              item.price < 0 ||
+              !Number.isFinite(currentPrice) ||
+              currentPrice < 0
+            ) {
+              throw new Error(
+                `"${item.name}" no tiene un precio válido.`
+              )
+            }
+
+            if (currentPrice !== item.price) {
+              throw new Error(
+                `El precio de "${product.name}" cambió. Quitalo del carrito y agregalo nuevamente para actualizarlo.`
+              )
+            }
+
+            validateSelections(
+              product,
+              item.selectedAttributes
+            )
+
+            item.name = product.name
           }
 
-          validateSelections(product, item.selectedAttributes)
-
-          // El nombre se toma del producto actual.
-          item.name = product.name
+          transaction.set(orderRef, {
+            customer,
+            notes,
+            items,
+            total,
+            status: "pending",
+            paymentMethod: "whatsapp",
+            paymentStatus: "not_applicable",
+            createdAt: serverTimestamp()
+          })
         }
-
-        transaction.set(orderRef, {
-          customer,
-          notes,
-          items,
-          total,
-          status: "pending",
-          createdAt: serverTimestamp()
-        })
-      })
+      )
 
       const lines = [
         "Hola! Quiero coordinar este pedido:",
@@ -167,9 +229,11 @@ function Cart() {
           )}`
         )
 
-        for (const [name, value] of Object.entries(
-          item.selectedAttributes
-        )) {
+        for (
+          const [name, value] of Object.entries(
+            item.selectedAttributes
+          )
+        ) {
           lines.push(`  ${name}: ${value}`)
         }
       }
@@ -186,7 +250,9 @@ function Cart() {
 
       const whatsappUrl =
         `https://wa.me/${storeConfig.whatsapp}` +
-        `?text=${encodeURIComponent(lines.join("\n"))}`
+        `?text=${encodeURIComponent(
+          lines.join("\n")
+        )}`
 
       setConfirmation({
         id: orderRef.id,
@@ -197,16 +263,28 @@ function Cart() {
       clearCart()
       setShowCheckout(false)
 
-      window.open(whatsappUrl, "_blank", "noopener,noreferrer")
+      window.open(
+        whatsappUrl,
+        "_blank",
+        "noopener,noreferrer"
+      )
     } catch (error) {
-      console.error("Error al registrar pedido:", error)
+      redirecting = false
+
+      console.error(
+        "Error al registrar pedido:",
+        error
+      )
 
       toast.error(
-        error.message || "No pudimos registrar el pedido. Intentá nuevamente."
+        error.message ||
+          "No pudimos registrar el pedido. Intentá nuevamente."
       )
     } finally {
-      submittingRef.current = false
-      setSubmitting(false)
+      if (!redirecting) {
+        submittingRef.current = false
+        setSubmitting(false)
+      }
     }
   }
 
@@ -215,13 +293,23 @@ function Cart() {
       <h1>Carrito</h1>
 
       {confirmation && (
-        <section className="cart-summary" role="status">
+        <section
+          className="cart-summary"
+          role="status"
+        >
           <h2>¡Pedido registrado!</h2>
-          <p>Número de pedido: {confirmation.id}</p>
-          <p>Total: {formatMoney(confirmation.total)}</p>
+
           <p>
-            Si WhatsApp no se abrió, usá el siguiente enlace para
-            coordinar el pedido.
+            Número de pedido: {confirmation.id}
+          </p>
+
+          <p>
+            Total: {formatMoney(confirmation.total)}
+          </p>
+
+          <p>
+            Si WhatsApp no se abrió, usá el
+            siguiente enlace para coordinar el pedido.
           </p>
 
           <a
@@ -244,13 +332,24 @@ function Cart() {
 
       {cart.map(item => {
         const productQuantity = cart
-          .filter(product => product.productId === item.productId)
-          .reduce((sum, product) => sum + product.quantity, 0)
+          .filter(
+            product =>
+              product.productId === item.productId
+          )
+          .reduce(
+            (sum, product) =>
+              sum + product.quantity,
+            0
+          )
 
-        const reachedStock = productQuantity >= getStock(item)
+        const reachedStock =
+          productQuantity >= getStock(item)
 
         return (
-          <div key={item.cartItemId} className="cart-item">
+          <div
+            key={item.cartItemId}
+            className="cart-item"
+          >
             <img
               src={item.image}
               alt={item.name}
@@ -261,10 +360,14 @@ function Cart() {
               <h3>{item.name}</h3>
 
               {Object.entries(
-                getSelections(item.selectedAttributes)
+                getSelections(
+                  item.selectedAttributes
+                )
               ).map(([name, value]) => (
                 <p key={name}>
-                  <small>{name}: {value}</small>
+                  <small>
+                    {name}: {value}
+                  </small>
                 </p>
               ))}
 
@@ -279,7 +382,10 @@ function Cart() {
                 aria-label={`Reducir cantidad de ${item.name}`}
                 disabled={submitting}
                 onClick={() =>
-                  changeQuantity(item, item.quantity - 1)
+                  changeQuantity(
+                    item,
+                    item.quantity - 1
+                  )
                 }
               >
                 -
@@ -290,10 +396,19 @@ function Cart() {
               <button
                 type="button"
                 aria-label={`Aumentar cantidad de ${item.name}`}
-                disabled={submitting || reachedStock}
-                title={reachedStock ? "Stock máximo alcanzado" : "Sumar unidad"}
+                disabled={
+                  submitting || reachedStock
+                }
+                title={
+                  reachedStock
+                    ? "Stock máximo alcanzado"
+                    : "Sumar unidad"
+                }
                 onClick={() =>
-                  changeQuantity(item, item.quantity + 1)
+                  changeQuantity(
+                    item,
+                    item.quantity + 1
+                  )
                 }
               >
                 +
@@ -301,7 +416,9 @@ function Cart() {
             </div>
 
             <div className="cart-subtotal">
-              {formatMoney(item.price * item.quantity)}
+              {formatMoney(
+                item.price * item.quantity
+              )}
             </div>
 
             <button
@@ -309,7 +426,9 @@ function Cart() {
               className="remove-item"
               aria-label={`Quitar ${item.name} del carrito`}
               disabled={submitting}
-              onClick={() => removeFromCart(item.cartItemId)}
+              onClick={() =>
+                removeFromCart(item.cartItemId)
+              }
             >
               ✕
             </button>
@@ -319,7 +438,9 @@ function Cart() {
 
       {cart.length > 0 && (
         <div className="cart-summary">
-          <h2>Total: {formatMoney(cartTotal)}</h2>
+          <h2>
+            Total: {formatMoney(cartTotal)}
+          </h2>
 
           <button
             type="button"
@@ -347,7 +468,9 @@ function Cart() {
           total={cartTotal}
           submitting={submitting}
           onClose={() => {
-            if (!submittingRef.current) setShowCheckout(false)
+            if (!submittingRef.current) {
+              setShowCheckout(false)
+            }
           }}
           onConfirm={handleConfirmOrder}
         />

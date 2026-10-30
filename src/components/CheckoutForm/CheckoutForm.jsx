@@ -6,6 +6,7 @@ import {
 } from "../../utils/cartUtils"
 
 import "./CheckoutForm.css"
+import "./CheckoutPayments.css"
 
 function CheckoutForm({
   cart,
@@ -18,7 +19,8 @@ function CheckoutForm({
     name: "",
     phone: "",
     address: "",
-    notes: ""
+    notes: "",
+    paymentMethod: "whatsapp"
   })
 
   const [error, setError] = useState("")
@@ -26,7 +28,10 @@ function CheckoutForm({
 
   useEffect(() => {
     const previousFocus = document.activeElement
-    formRef.current?.querySelector("input")?.focus()
+
+    formRef.current
+      ?.querySelector("input")
+      ?.focus()
 
     return () => {
       previousFocus?.focus?.()
@@ -49,7 +54,10 @@ function CheckoutForm({
 
     if (submitting) return
 
-    if (!form.name.trim() || !form.phone.trim()) {
+    if (
+      !form.name.trim() ||
+      !form.phone.trim()
+    ) {
       setError("Completá nombre y teléfono.")
       return
     }
@@ -67,7 +75,7 @@ function CheckoutForm({
 
     const focusable = [
       ...event.currentTarget.querySelectorAll(
-        'input:not(:disabled), textarea:not(:disabled), button:not(:disabled)'
+        "input:not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled)"
       )
     ]
 
@@ -79,14 +87,31 @@ function CheckoutForm({
       return
     }
 
-    if (event.shiftKey && document.activeElement === first) {
+    if (
+      event.shiftKey &&
+      document.activeElement === first
+    ) {
       event.preventDefault()
       last.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
+    } else if (
+      !event.shiftKey &&
+      document.activeElement === last
+    ) {
       event.preventDefault()
       first.focus()
     }
   }
+
+  const isMercadoPago =
+    form.paymentMethod === "mercadopago"
+
+  const buttonText = submitting
+    ? isMercadoPago
+      ? "Abriendo Mercado Pago..."
+      : "Guardando..."
+    : isMercadoPago
+      ? "Ir a Mercado Pago DEMO"
+      : "Confirmar por WhatsApp"
 
   return (
     <div
@@ -104,20 +129,35 @@ function CheckoutForm({
         onClick={event => event.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        <h2 id="checkout-title">Finalizar compra</h2>
+        <h2 id="checkout-title">
+          Finalizar compra
+        </h2>
 
         <div className="checkout-summary">
           {cart.map(item => (
-            <div key={item.cartItemId} className="summary-item">
-              <img src={item.image} alt={item.name} />
+            <div
+              key={item.cartItemId}
+              className="summary-item"
+            >
+              <img
+                src={item.image}
+                alt={item.name}
+              />
 
               <div className="summary-info">
-                <p className="summary-name">{item.name}</p>
+                <p className="summary-name">
+                  {item.name}
+                </p>
 
                 {Object.entries(
-                  getSelections(item.selectedAttributes)
+                  getSelections(
+                    item.selectedAttributes
+                  )
                 ).map(([name, value]) => (
-                  <p key={name} className="summary-qty">
+                  <p
+                    key={name}
+                    className="summary-qty"
+                  >
                     {name}: {value}
                   </p>
                 ))}
@@ -128,7 +168,9 @@ function CheckoutForm({
               </div>
 
               <div className="summary-price">
-                {formatMoney(item.price * item.quantity)}
+                {formatMoney(
+                  item.price * item.quantity
+                )}
               </div>
             </div>
           ))}
@@ -138,9 +180,15 @@ function CheckoutForm({
           </div>
         </div>
 
-        <form ref={formRef} onSubmit={handleSubmit}>
+        <form
+          ref={formRef}
+          onSubmit={handleSubmit}
+        >
           <div className="input-group">
-            <label htmlFor="checkout-name">Nombre</label>
+            <label htmlFor="checkout-name">
+              Nombre
+            </label>
+
             <input
               id="checkout-name"
               type="text"
@@ -156,7 +204,10 @@ function CheckoutForm({
           </div>
 
           <div className="input-group">
-            <label htmlFor="checkout-phone">Teléfono</label>
+            <label htmlFor="checkout-phone">
+              Teléfono
+            </label>
+
             <input
               id="checkout-phone"
               type="tel"
@@ -175,6 +226,7 @@ function CheckoutForm({
             <label htmlFor="checkout-address">
               Dirección (opcional)
             </label>
+
             <input
               id="checkout-address"
               type="text"
@@ -192,6 +244,7 @@ function CheckoutForm({
             <label htmlFor="checkout-notes">
               Notas (opcional)
             </label>
+
             <textarea
               id="checkout-notes"
               name="notes"
@@ -203,11 +256,45 @@ function CheckoutForm({
             />
           </div>
 
+          <div className="input-group">
+            <label htmlFor="checkout-payment">
+              ¿Cómo querés continuar?
+            </label>
+
+            <select
+              id="checkout-payment"
+              name="paymentMethod"
+              className="checkout-payment-select"
+              value={form.paymentMethod}
+              onChange={handleChange}
+              disabled={submitting}
+            >
+              <option value="whatsapp">
+                Coordinar por WhatsApp
+              </option>
+
+              <option value="mercadopago">
+                Mercado Pago DEMO
+              </option>
+            </select>
+          </div>
+
+          {isMercadoPago && (
+            <p className="checkout-payment-note">
+              Vas a abrir el checkout de prueba de
+              Mercado Pago. Usá exclusivamente sus
+              cuentas y medios de pago de prueba.
+            </p>
+          )}
+
           <p>
-            El pedido queda pendiente de confirmación y no reserva stock.
+            El pedido queda pendiente de
+            confirmación y no reserva stock.
           </p>
 
-          {error && <p role="alert">{error}</p>}
+          {error && (
+            <p role="alert">{error}</p>
+          )}
 
           <div className="checkout-actions">
             <button
@@ -215,7 +302,7 @@ function CheckoutForm({
               className="confirm-btn"
               disabled={submitting}
             >
-              {submitting ? "Guardando..." : "Confirmar pedido"}
+              {buttonText}
             </button>
 
             <button

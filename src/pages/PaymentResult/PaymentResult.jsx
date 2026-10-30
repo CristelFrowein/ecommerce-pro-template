@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react"
-import { Link, useSearchParams } from "react-router-dom"
+
+import {
+  Link,
+  useSearchParams
+} from "react-router-dom"
+
+import { useCart } from "../../hooks/useCart"
+
+import {
+  finishPaidCheckout
+} from "../../services/paymentService"
 
 import "./PaymentResult.css"
 
@@ -8,52 +18,42 @@ const messages = {
     "Pago de prueba aprobado",
     "Mercado Pago confirmó el pago ficticio. El comercio continuará con la preparación del pedido."
   ],
-
   pending: [
     "Estamos esperando la confirmación",
     "El pedido está registrado. Todavía esperamos la confirmación del pago de Mercado Pago."
   ],
-
   in_process: [
     "Pago de prueba en proceso",
     "Mercado Pago está procesando el pago. Podés volver a consultar su estado."
   ],
-
   authorized: [
     "Pago de prueba autorizado",
     "El pago fue autorizado, pero todavía no está confirmado como cobrado."
   ],
-
   rejected: [
     "Pago de prueba rechazado",
     "Este intento no fue aprobado. Podés volver al carrito para intentar nuevamente."
   ],
-
   cancelled: [
     "Pago de prueba cancelado",
     "Este intento de pago fue cancelado. Podés volver al carrito."
   ],
-
   refunded: [
     "Pago de prueba reembolsado",
     "Mercado Pago informó que este pago fue reembolsado."
   ],
-
   partially_refunded: [
     "Pago con reembolso parcial",
     "Mercado Pago informó una devolución parcial del pago de prueba."
   ],
-
   charged_back: [
     "Pago con contracargo",
     "Este pago de prueba necesita revisión desde la administración."
   ],
-
   in_mediation: [
     "Pago en revisión",
     "Mercado Pago informó una revisión de este pago de prueba."
   ],
-
   unknown: [
     "Estado pendiente de revisión",
     "No podemos mostrar este pago como aprobado. Volvé a consultar más tarde."
@@ -61,8 +61,9 @@ const messages = {
 }
 
 function PaymentResult() {
-  const [searchParams] = useSearchParams()
+  const { cart, clearCart } = useCart()
 
+  const [searchParams] = useSearchParams()
   const orderId = searchParams.get("order") || ""
 
   const validOrder =
@@ -130,8 +131,6 @@ function PaymentResult() {
             "authorized"
           ].includes(data.paymentStatus)
 
-        // Consultamos hasta 15 veces.
-        // Después se puede actualizar manualmente.
         if (
           waiting &&
           !data.reviewRequired &&
@@ -174,6 +173,20 @@ function PaymentResult() {
       : null
 
   const data = current?.data
+
+  useEffect(() => {
+    if (
+      data?.verified &&
+      data.paymentStatus === "approved" &&
+      !data.reviewRequired
+    ) {
+      finishPaidCheckout(
+        orderId,
+        cart,
+        clearCart
+      )
+    }
+  }, [data, orderId, cart, clearCart])
 
   let tone = "waiting"
   let title = "Consultando pago de prueba…"

@@ -1,0 +1,39 @@
+.checkout-box .checkout-payment-select {
+  display: block;
+
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px;
+
+  border: 1px solid var(--color-border, #e6dfd6);
+  border-radius: var(--radius-sm, 6px);
+
+  background: white;
+  color: var(--color-text, #3e3e3e);
+
+  font: inherit;
+  font-size: 16px;
+}
+
+.checkout-box .checkout-payment-select:focus-visible {
+  outline: 2px solid var(--color-primary, #6b705c);
+  outline-offset: 2px;
+}
+
+.checkout-box .checkout-payment-select:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.checkout-box form > .checkout-payment-note {
+  padding: 12px;
+
+  border: 1px solid #b8d7e8;
+  border-radius: var(--radius-sm, 6px);
+
+  color: #174b68;
+  background: #edf7fc;
+
+  font-size: 13px;
+}
