@@ -9,81 +9,102 @@ import {
 import Layout from "./components/Layout/Layout"
 
 import Home from "./pages/Home/Home"
-import Cart from "./pages/Cart/Cart"
-import Category from "./pages/Category/Category"
-import ProductDetail from "./pages/ProductDetail/ProductDetail"
-import Search from "./pages/Search/Search"
-import NotFound from "./pages/NotFound/NotFound"
-import PaymentResult from "./pages/PaymentResult/PaymentResult"
 
 import { ToastContainer } from "react-toastify"
 
 import "react-toastify/dist/ReactToastify.css"
 
+const Cart = lazy(
+  () => import("./pages/Cart/Cart")
+)
+
+const Category = lazy(
+  () => import("./pages/Category/Category")
+)
+
+const ProductDetail = lazy(
+  () => import("./pages/ProductDetail/ProductDetail")
+)
+
+const Search = lazy(
+  () => import("./pages/Search/Search")
+)
+
+const PaymentResult = lazy(
+  () => import("./pages/PaymentResult/PaymentResult")
+)
+
 const AdminPage = lazy(
   () => import("./pages/admin/AdminPage")
 )
+
+const NotFound = lazy(
+  () => import("./pages/NotFound/NotFound")
+)
+
+function PageLoader() {
+  return (
+    <div
+      className="container"
+      role="status"
+      aria-live="polite"
+      style={{
+        paddingBlock: "40px",
+        minHeight: "240px"
+      }}
+    >
+      <p>Cargando página…</p>
+    </div>
+  )
+}
 
 function App() {
   return (
     <BrowserRouter>
       <Layout>
-        <Routes>
-          <Route
-            path="/"
-            element={<Home />}
-          />
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route
+              path="/"
+              element={<Home />}
+            />
 
-          <Route
-            path="/buscar"
-            element={<Search />}
-          />
+            <Route
+              path="/buscar"
+              element={<Search />}
+            />
 
-          <Route
-            path="/categoria/:slug"
-            element={<Category />}
-          />
+            <Route
+              path="/categoria/:slug"
+              element={<Category />}
+            />
 
-          <Route
-            path="/cart"
-            element={<Cart />}
-          />
+            <Route
+              path="/cart"
+              element={<Cart />}
+            />
 
-          <Route
-            path="/producto/:id"
-            element={<ProductDetail />}
-          />
+            <Route
+              path="/producto/:id"
+              element={<ProductDetail />}
+            />
 
-          <Route
-            path="/pago/resultado"
-            element={<PaymentResult />}
-          />
+            <Route
+              path="/pago/resultado"
+              element={<PaymentResult />}
+            />
 
-          <Route
-            path="/admin"
-            element={
-              <Suspense
-                fallback={
-                  <div
-                    className="container"
-                    role="status"
-                    aria-live="polite"
-                    style={{ padding: "40px 0" }}
-                  >
-                    <p>Cargando administrador...</p>
-                  </div>
-                }
-              >
-                <AdminPage />
-              </Suspense>
-            }
-          />
+            <Route
+              path="/admin"
+              element={<AdminPage />}
+            />
 
-          <Route
-            path="*"
-            element={<NotFound />}
-          />
-        </Routes>
+            <Route
+              path="*"
+              element={<NotFound />}
+            />
+          </Routes>
+        </Suspense>
       </Layout>
 
       <ToastContainer
