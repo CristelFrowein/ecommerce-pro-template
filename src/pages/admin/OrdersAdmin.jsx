@@ -15,7 +15,6 @@ import {
 } from "firebase/firestore"
 
 import { toast } from "react-toastify"
-
 import { db } from "../../services/firebase"
 
 import {
@@ -26,10 +25,6 @@ import {
 } from "../../utils/cartUtils"
 
 import "./OrdersAdmin.css"
-
-// ==============================
-// ESTADOS
-// ==============================
 
 const STATUS_LABELS = {
   pending: "Pendiente",
@@ -45,13 +40,22 @@ const FILTERS = [
   { value: "cancelled", label: "Cancelados" }
 ]
 
+const PAYMENT_LABELS = {
+  approved: "Aprobado",
+  pending: "Pendiente de pago",
+  in_process: "En proceso",
+  authorized: "Autorizado, sin cobro confirmado",
+  rejected: "Rechazado",
+  cancelled: "Cancelado",
+  refunded: "Reembolsado",
+  partially_refunded: "Reembolso parcial",
+  charged_back: "Contracargo",
+  in_mediation: "En revisión",
+  unknown: "Estado desconocido"
+}
+
 function getStatus(order) {
-  // Compatibilidad con pedidos antiguos sin estado.
-  if (
-    order.status === undefined ||
-    order.status === null ||
-    order.status === ""
-  ) {
+  if (order.status == null || order.status === "") {
     return "pending"
   }
 
@@ -62,9 +66,162 @@ function getStatus(order) {
     : "unknown"
 }
 
-// ==============================
-// FECHAS
-// ==============================
+function isMercadoPago(order) {
+  return (
+    order.paymentMethod === "mercadopago" ||
+    String(order.id || "").startsWith("mp_") ||
+    Boolean(order.preferenceId)
+  )
+}
+
+function getPaymentInfo(order) {
+  if (!isMercadoPago(order)) {
+    const legacy =
+      order.paymentMethod == null ||
+      order.paymentMethod === ""
+
+    if (legacy || order.paymentMethod === "whatsapp") {
+      return {
+        isMercadoPago: false,
+        method: "WhatsApp",
+        label: "A coordinar",
+        tone: "neutral",
+        group: "whatsapp",
+        canComplete: true,
+        reason:
+          "El pago se coordina con el cliente por WhatsApp."
+      }
+    }
+
+    return {
+      isMercadoPago: false,
+      method: "Método no reconocido",
+      label: "Revisar método",
+      tone: "warning",
+      group: "review",
+      canComplete: false,
+      reason:
+        "Revisá el método de pago antes de completar este pedido."
+    }
+  }
+
+  const method = order.paymentMode === "test"
+    ? "Mercado Pago · DEMO"
+    : "Mercado Pago"
+
+  if (order.paymentReviewRequired === true) {
+    return {
+      isMercadoPago: true,
+      method,
+      label: "Revisión requerida",
+      tone: "warning",
+      group: "review",
+      canComplete: false,
+      reason:
+        "Este pago requiere revisión. No completes el pedido hasta resolverla."
+    }
+  }
+
+  if (order.paymentVerified !== true) {
+    const failed = order.checkoutState === "failed"
+
+    return {
+      isMercadoPago: true,
+      method,
+      label: failed
+        ? "Checkout no iniciado"
+        : "Sin verificar",
+      tone: failed ? "danger" : "warning",
+      group: failed ? "failed" : "waiting",
+      canComplete: false,
+      reason: failed
+        ? "El checkout no se pudo iniciar. El pedido no tiene un pago aprobado verificado."
+        : "Todavía no hay una confirmación verificada del pago. Podés consultar su estado."
+    }
+  }
+
+  const status = order.paymentStatus
+
+  const validPaymentId = /^\d{1,30}$/.test(
+    String(order.paymentId || "")
+  )
+
+  if (status === "approved" && !validPaymentId) {
+    return {
+      isMercadoPago: true,
+      method,
+      label: "Aprobación incompleta",
+      tone: "warning",
+      group: "review",
+      canComplete: false,
+      reason:
+        "Falta un identificador de pago válido. Revisá la verificación antes de completar."
+    }
+  }
+
+  const canComplete =
+    status === "approved" && validPaymentId
+
+  const waiting = [
+    "pending",
+    "in_process",
+    "authorized"
+  ].includes(status)
+
+  const failed = [
+    "rejected",
+    "cancelled"
+  ].includes(status)
+
+  const refunded = [
+    "refunded",
+    "partially_refunded"
+  ].includes(status)
+
+  const group = canComplete
+    ? "approved"
+    : waiting
+      ? "waiting"
+      : failed
+        ? "failed"
+        : refunded
+          ? "refunded"
+          : "review"
+
+  return {
+    isMercadoPago: true,
+    method,
+    label:
+      PAYMENT_LABELS[status] ||
+      PAYMENT_LABELS.unknown,
+    tone: canComplete
+      ? "success"
+      : failed
+        ? "danger"
+        : "warning",
+    group,
+    canComplete,
+    reason: canComplete
+      ? "Pago aprobado y verificado. El estado del pedido se gestiona por separado."
+      : "Para completar este pedido, el pago debe estar aprobado, verificado y sin revisiones pendientes."
+  }
+}
+
+function needsPaymentReviewOnCancellation(order) {
+  return isMercadoPago(order) && (
+    order.paymentReviewRequired === true ||
+    (
+      order.paymentVerified === true &&
+      [
+        "approved",
+        "partially_refunded",
+        "authorized",
+        "in_mediation",
+        "charged_back"
+      ].includes(order.paymentStatus)
+    )
+  )
+}
 
 const dateFormatter = new Intl.DateTimeFormat(
   "es-AR",
@@ -76,9 +233,7 @@ const dateFormatter = new Intl.DateTimeFormat(
 )
 
 function getDate(value) {
-  if (value === null || value === undefined) {
-    return null
-  }
+  if (value == null) return null
 
   try {
     let date
@@ -123,7 +278,6 @@ function compareDates(a, b, order) {
   const dateA = getDate(a.createdAt)
   const dateB = getDate(b.createdAt)
 
-  // Los pedidos sin fecha quedan al final.
   if (!dateA && !dateB) {
     return a.id.localeCompare(b.id)
   }
@@ -137,10 +291,6 @@ function compareDates(a, b, order) {
 
   return difference || a.id.localeCompare(b.id)
 }
-
-// ==============================
-// BÚSQUEDA
-// ==============================
 
 function normalizeText(value) {
   return String(value ?? "")
@@ -156,23 +306,19 @@ function matchesSearch(order, search) {
 
   if (!term) return true
 
-  const phone = String(
-    order.customer?.phone ?? ""
-  )
-
+  const phone = String(order.customer?.phone ?? "")
   const phoneDigits = phone.replace(/\D/g, "")
 
   const haystack = normalizeText(
-    `${order.id} ${order.customer?.name ?? ""} ` +
+    `${order.id} ${order.paymentId ?? ""} ` +
+    `${order.customer?.name ?? ""} ` +
     `${phone} ${phoneDigits}`
   )
 
-  const matchesWords = term
+  const words = term
     .split(" ")
     .every(word => haystack.includes(word))
 
-  // Permite buscar teléfonos con espacios,
-  // guiones, paréntesis o prefijo internacional.
   const digits = term.replace(/\D/g, "")
 
   const isPhoneSearch =
@@ -180,15 +326,14 @@ function matchesSearch(order, search) {
     digits.length > 0
 
   return (
-    matchesWords ||
+    words ||
     (isPhoneSearch && phoneDigits.includes(digits))
   )
 }
 
 function getItemPrice(item) {
   if (
-    item.price === null ||
-    item.price === undefined ||
+    item.price == null ||
     String(item.price).trim() === ""
   ) {
     return null
@@ -201,10 +346,6 @@ function getItemPrice(item) {
     : null
 }
 
-// ==============================
-// COMPONENTE
-// ==============================
-
 function OrdersAdmin({ onBack }) {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -214,28 +355,26 @@ function OrdersAdmin({ onBack }) {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateOrder, setDateOrder] = useState("newest")
+  const [paymentFilter, setPaymentFilter] = useState("all")
 
   const [processing, setProcessing] = useState({})
-
   const processingRef = useRef(new Set())
 
   const searchId = useId()
   const sortId = useId()
-
-  // ==============================
-  // PEDIDOS EN TIEMPO REAL
-  // ==============================
+  const paymentFilterId = useId()
 
   useEffect(() => {
     return onSnapshot(
       collection(db, "orders"),
       snapshot => {
-        const data = snapshot.docs.map(document => ({
-          ...document.data(),
-          id: document.id
-        }))
+        setOrders(
+          snapshot.docs.map(document => ({
+            ...document.data(),
+            id: document.id
+          }))
+        )
 
-        setOrders(data)
         setError("")
         setLoading(false)
       },
@@ -253,10 +392,6 @@ function OrdersAdmin({ onBack }) {
       }
     )
   }, [attempt])
-
-  // ==============================
-  // CONTADORES Y FILTROS
-  // ==============================
 
   const counts = useMemo(() => {
     const result = {
@@ -279,30 +414,39 @@ function OrdersAdmin({ onBack }) {
 
   const filteredOrders = useMemo(() => {
     return orders
-      .filter(order => {
-        const matchesStatus =
+      .filter(order =>
+        (
           statusFilter === "all" ||
           getStatus(order) === statusFilter
-
-        return (
-          matchesStatus &&
-          matchesSearch(order, search)
-        )
-      })
+        ) &&
+        (
+          paymentFilter === "all" ||
+          getPaymentInfo(order).group === paymentFilter
+        ) &&
+        matchesSearch(order, search)
+      )
       .sort((a, b) =>
         compareDates(a, b, dateOrder)
       )
-  }, [orders, search, statusFilter, dateOrder])
+  }, [
+    orders,
+    search,
+    statusFilter,
+    paymentFilter,
+    dateOrder
+  ])
 
   const hasFilters =
     search !== "" ||
     statusFilter !== "all" ||
-    dateOrder !== "newest"
+    dateOrder !== "newest" ||
+    paymentFilter !== "all"
 
   function clearFilters() {
     setSearch("")
     setStatusFilter("all")
     setDateOrder("newest")
+    setPaymentFilter("all")
   }
 
   function retryLoading() {
@@ -311,9 +455,84 @@ function OrdersAdmin({ onBack }) {
     setAttempt(previous => previous + 1)
   }
 
-  // ==============================
-  // COMPLETAR O CANCELAR
-  // ==============================
+  function finishProcessing(orderId) {
+    processingRef.current.delete(orderId)
+
+    setProcessing(previous => ({
+      ...previous,
+      [orderId]: false
+    }))
+  }
+
+  async function refreshPayment(order) {
+    if (processingRef.current.has(order.id)) return
+
+    processingRef.current.add(order.id)
+
+    setProcessing(previous => ({
+      ...previous,
+      [order.id]: "payment"
+    }))
+
+    try {
+      const response = await fetch(
+        `/api/payment-status?order=${encodeURIComponent(order.id)}`,
+        {
+          cache: "no-store",
+          signal: AbortSignal.timeout(20000)
+        }
+      )
+
+      const data = await response
+        .json()
+        .catch(() => null)
+
+      if (!response.ok || !data) {
+        throw new Error(
+          data?.message ||
+          "No se pudo consultar el pago."
+        )
+      }
+
+      if (
+        data.orderId !== order.id ||
+        data.mode !== "test"
+      ) {
+        throw new Error(
+          "La respuesta no corresponde a este pedido de prueba."
+        )
+      }
+
+      if (data.reviewRequired) {
+        toast.warning(
+          "El pago requiere revisión."
+        )
+      } else if (
+        data.verified &&
+        data.paymentStatus === "approved"
+      ) {
+        toast.success(
+          "Pago aprobado y verificado."
+        )
+      } else {
+        const label = data.verified
+          ? PAYMENT_LABELS[data.paymentStatus] ||
+            "Desconocido"
+          : "Sin verificar"
+
+        toast.info(`Estado del pago: ${label}.`)
+      }
+    } catch (paymentError) {
+      toast.error(
+        paymentError.name === "TimeoutError"
+          ? "La consulta tardó demasiado. Intentá nuevamente."
+          : paymentError.message ||
+            "No se pudo consultar el pago."
+      )
+    } finally {
+      finishProcessing(order.id)
+    }
+  }
 
   async function changeOrderStatus(order, target) {
     if (
@@ -330,14 +549,33 @@ function OrdersAdmin({ onBack }) {
       return
     }
 
+    const payment = getPaymentInfo(order)
+
     if (
-      target === "cancelled" &&
-      !window.confirm(
-        `¿Cancelar el pedido ${order.id}?\n\n` +
-        "No se descontará stock."
-      )
+      target === "completed" &&
+      !payment.canComplete
     ) {
+      toast.warning(payment.reason)
       return
+    }
+
+    const cancellationNeedsReview =
+      needsPaymentReviewOnCancellation(order)
+
+    if (target === "cancelled") {
+      const warning = cancellationNeedsReview
+        ? "Este pedido tiene un pago que requiere atención. Cancelar el pedido NO realiza un reembolso en Mercado Pago. Revisá el pago y gestioná la devolución que corresponda.\n\nNo se descontará stock."
+        : payment.isMercadoPago
+          ? "No se descontará stock. Cancelar el pedido no realiza devoluciones en Mercado Pago."
+          : "No se descontará stock."
+
+      if (
+        !window.confirm(
+          `¿Cancelar el pedido ${order.id}?\n\n${warning}`
+        )
+      ) {
+        return
+      }
     }
 
     processingRef.current.add(order.id)
@@ -366,32 +604,62 @@ function OrdersAdmin({ onBack }) {
             )
           }
 
-          const currentOrder = orderSnapshot.data()
-          const currentStatus = getStatus(currentOrder)
+          const currentOrder = {
+            ...orderSnapshot.data(),
+            id: order.id
+          }
 
-          // Otro proceso pudo haber realizado
-          // exactamente la misma operación.
+          const currentStatus =
+            getStatus(currentOrder)
+
           if (currentStatus === target) {
             return false
           }
 
           if (currentStatus !== "pending") {
             throw new Error(
-              `El pedido ya no está pendiente. Estado actual: ${
-                STATUS_LABELS[currentStatus]
-              }.`
+              `El pedido ya no está pendiente. Estado actual: ${STATUS_LABELS[currentStatus]}.`
             )
           }
 
-          // Cancelar un pendiente no toca productos.
           if (target === "cancelled") {
+            const needsReview =
+              needsPaymentReviewOnCancellation(
+                currentOrder
+              )
+
+            if (
+              needsReview &&
+              !cancellationNeedsReview
+            ) {
+              throw new Error(
+                "El estado del pago cambió. Revisá el pedido y volvé a cancelar para confirmar el aviso correspondiente."
+              )
+            }
+
             transaction.update(orderRef, {
               status: "cancelled",
               cancelledAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
+              updatedAt: serverTimestamp(),
+              ...(
+                needsReview
+                  ? { paymentReviewRequired: true }
+                  : {}
+              )
             })
 
             return true
+          }
+
+          // Revisamos el pago actualizado dentro
+          // de la misma transacción del stock.
+          const currentPayment =
+            getPaymentInfo(currentOrder)
+
+          if (!currentPayment.canComplete) {
+            throw new Error(
+              currentPayment.reason
+            )
           }
 
           if (
@@ -403,7 +671,6 @@ function OrdersAdmin({ onBack }) {
             )
           }
 
-          // Suma las variantes de cada producto.
           const quantities = groupQuantities(
             currentOrder.items
           )
@@ -411,7 +678,9 @@ function OrdersAdmin({ onBack }) {
           const updates = []
 
           // Primero todas las lecturas.
-          for (const [productId, quantity] of quantities) {
+          for (
+            const [productId, quantity] of quantities
+          ) {
             const productRef = doc(
               db,
               "products",
@@ -432,8 +701,7 @@ function OrdersAdmin({ onBack }) {
 
             if (quantity > stock) {
               throw new Error(
-                `Stock insuficiente de "${product.name}". ` +
-                `Disponible: ${stock}. Pedido: ${quantity}.`
+                `Stock insuficiente de "${product.name}". Disponible: ${stock}. Pedido: ${quantity}.`
               )
             }
 
@@ -466,14 +734,13 @@ function OrdersAdmin({ onBack }) {
             ? "El pedido ya estaba completado."
             : "El pedido ya estaba cancelado."
         )
-
         return
       }
 
       toast.success(
         target === "completed"
           ? "Pedido completado. Stock actualizado."
-          : "Pedido cancelado sin descontar stock."
+          : "Pedido cancelado sin descontar stock. No se realizaron reembolsos."
       )
     } catch (actionError) {
       console.error(
@@ -486,23 +753,18 @@ function OrdersAdmin({ onBack }) {
         "No se pudo modificar el pedido."
       )
     } finally {
-      processingRef.current.delete(order.id)
-
-      setProcessing(previous => ({
-        ...previous,
-        [order.id]: false
-      }))
+      finishProcessing(order.id)
     }
   }
 
   return (
     <div className="orders-admin">
-      {/* TÍTULO */}
       <div className="orders-title">
         <div>
           <h2>Pedidos</h2>
           <p>
-            Buscá, revisá y gestioná las compras.
+            Gestioná los pedidos y revisá sus pagos
+            por separado.
           </p>
         </div>
 
@@ -517,11 +779,10 @@ function OrdersAdmin({ onBack }) {
         )}
       </div>
 
-      {/* FILTROS POR ESTADO */}
       <div
         className="orders-statistics"
         role="group"
-        aria-label="Filtrar pedidos por estado"
+        aria-label="Filtrar por estado del pedido"
       >
         {FILTERS.map(filter => (
           <button
@@ -546,7 +807,6 @@ function OrdersAdmin({ onBack }) {
         ))}
       </div>
 
-      {/* BÚSQUEDA Y ORDEN */}
       <div className="orders-toolbar">
         <div className="orders-search-field">
           <label htmlFor={searchId}>
@@ -556,7 +816,7 @@ function OrdersAdmin({ onBack }) {
           <input
             id={searchId}
             type="search"
-            placeholder="Número, nombre o teléfono"
+            placeholder="Pedido, pago, nombre o teléfono"
             autoComplete="off"
             value={search}
             disabled={loading || Boolean(error)}
@@ -564,6 +824,43 @@ function OrdersAdmin({ onBack }) {
               setSearch(event.target.value)
             }
           />
+        </div>
+
+        <div className="orders-payment-filter-field">
+          <label htmlFor={paymentFilterId}>
+            Filtrar por pago
+          </label>
+
+          <select
+            id={paymentFilterId}
+            value={paymentFilter}
+            disabled={loading || Boolean(error)}
+            onChange={event =>
+              setPaymentFilter(event.target.value)
+            }
+          >
+            <option value="all">
+              Todos los pagos
+            </option>
+            <option value="approved">
+              Aprobados y verificados
+            </option>
+            <option value="waiting">
+              Pendientes / sin verificar
+            </option>
+            <option value="failed">
+              Rechazados / cancelados / fallidos
+            </option>
+            <option value="refunded">
+              Reembolsados / parciales
+            </option>
+            <option value="review">
+              Requieren revisión
+            </option>
+            <option value="whatsapp">
+              A coordinar por WhatsApp
+            </option>
+          </select>
         </div>
 
         <div className="orders-sort-field">
@@ -582,7 +879,6 @@ function OrdersAdmin({ onBack }) {
             <option value="newest">
               Más recientes primero
             </option>
-
             <option value="oldest">
               Más antiguos primero
             </option>
@@ -612,7 +908,6 @@ function OrdersAdmin({ onBack }) {
         </div>
       )}
 
-      {/* CARGA / ERROR / VACÍO */}
       {loading ? (
         <p className="orders-loading" role="status">
           Cargando pedidos...
@@ -642,13 +937,14 @@ function OrdersAdmin({ onBack }) {
           <p>
             {orders.length === 0
               ? "Los nuevos pedidos aparecerán aquí."
-              : "Probá con otra búsqueda o cambiá el filtro de estado."}
+              : "Probá con otra búsqueda o cambiá los filtros."}
           </p>
         </div>
       ) : (
         <div className="orders-list">
           {filteredOrders.map(order => {
             const status = getStatus(order)
+            const payment = getPaymentInfo(order)
             const action = processing[order.id]
             const isProcessing = Boolean(action)
 
@@ -664,20 +960,33 @@ function OrdersAdmin({ onBack }) {
                 )
               : []
 
-            const units = items.reduce((total, item) => {
-              const quantity = Number(item.quantity)
+            const units = items.reduce(
+              (total, item) => {
+                const quantity = Number(item.quantity)
 
-              return total + (
-                Number.isSafeInteger(quantity) &&
-                quantity > 0
-                  ? quantity
-                  : 0
-              )
-            }, 0)
+                return total + (
+                  Number.isSafeInteger(quantity) &&
+                  quantity > 0
+                    ? quantity
+                    : 0
+                )
+              },
+              0
+            )
 
             const createdDate = getDate(
               order.createdAt
             )
+
+            const canRefresh =
+              payment.isMercadoPago &&
+              order.paymentMode === "test" &&
+              /^mp_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                order.id
+              )
+
+            const blockedId =
+              `payment-note-${order.id}`
 
             return (
               <article
@@ -685,7 +994,6 @@ function OrdersAdmin({ onBack }) {
                 className="order-card"
                 aria-busy={isProcessing}
               >
-                {/* CLIENTE Y ESTADO */}
                 <div className="order-header">
                   <div className="order-customer">
                     <div
@@ -709,15 +1017,22 @@ function OrdersAdmin({ onBack }) {
                     </div>
                   </div>
 
-                  <span
-                    className={`order-status status-${status}`}
-                  >
-                    {STATUS_LABELS[status]}
-                  </span>
+                  <div className="order-status-group">
+                    <span
+                      className={`order-status status-${status}`}
+                    >
+                      Pedido: {STATUS_LABELS[status]}
+                    </span>
+
+                    <span
+                      className={`order-payment-status payment-${payment.tone}`}
+                    >
+                      Pago: {payment.label}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="order-content">
-                  {/* IDENTIFICACIÓN Y FECHA */}
                   <dl className="order-meta">
                     <div>
                       <dt>Número de pedido</dt>
@@ -731,9 +1046,13 @@ function OrdersAdmin({ onBack }) {
                       <dd>
                         {createdDate ? (
                           <time
-                            dateTime={createdDate.toISOString()}
+                            dateTime={
+                              createdDate.toISOString()
+                            }
                           >
-                            {formatDate(order.createdAt)}
+                            {formatDate(
+                              order.createdAt
+                            )}
                           </time>
                         ) : (
                           "Sin fecha registrada"
@@ -742,7 +1061,89 @@ function OrdersAdmin({ onBack }) {
                     </div>
                   </dl>
 
-                  {/* DETALLE DESPLEGABLE */}
+                  <section
+                    className="order-payment"
+                    aria-label="Información del pago"
+                  >
+                    <div className="order-payment-heading">
+                      <strong>
+                        {payment.method}
+                      </strong>
+
+                      {canRefresh && (
+                        <button
+                          type="button"
+                          className="order-refresh-payment"
+                          disabled={isProcessing}
+                          onClick={() =>
+                            refreshPayment(order)
+                          }
+                        >
+                          {action === "payment"
+                            ? "Consultando..."
+                            : "Actualizar pago"}
+                        </button>
+                      )}
+                    </div>
+
+                    <p
+                      id={blockedId}
+                      className={`order-payment-note ${
+                        !payment.canComplete
+                          ? "payment-note-warning"
+                          : ""
+                      }`}
+                    >
+                      {payment.reason}
+                    </p>
+
+                    {payment.isMercadoPago && (
+                      <dl className="order-payment-meta">
+                        <div>
+                          <dt>Estado informado</dt>
+                          <dd>
+                            {order.paymentVerified === true
+                              ? PAYMENT_LABELS[
+                                  order.paymentStatus
+                                ] || "Desconocido"
+                              : "Sin verificar"}
+                          </dd>
+                        </div>
+
+                        <div>
+                          <dt>ID del pago</dt>
+                          <dd className="order-id">
+                            {String(
+                              order.paymentId ||
+                              "Todavía no registrado"
+                            )}
+                          </dd>
+                        </div>
+
+                        <div>
+                          <dt>Verificación</dt>
+                          <dd>
+                            {order.paymentVerified === true
+                              ? formatDate(
+                                  order.paymentVerifiedAt
+                                )
+                              : "Pendiente de verificación"}
+                          </dd>
+                        </div>
+                      </dl>
+                    )}
+
+                    {status === "cancelled" &&
+                      payment.isMercadoPago && (
+                        <p className="order-refund-note">
+                          Cancelar el pedido no realiza
+                          un reembolso. Revisá el estado
+                          del pago y gestioná la devolución
+                          que corresponda en Mercado Pago.
+                        </p>
+                      )}
+                  </section>
+
                   <details className="order-details">
                     <summary>
                       Ver productos y datos de entrega
@@ -774,7 +1175,9 @@ function OrdersAdmin({ onBack }) {
                           <div>
                             <dt>Email</dt>
                             <dd>
-                              {String(order.customer.email)}
+                              {String(
+                                order.customer.email
+                              )}
                             </dd>
                           </div>
                         )}
@@ -782,7 +1185,9 @@ function OrdersAdmin({ onBack }) {
 
                       {order.notes && (
                         <div className="order-notes">
-                          <strong>Notas del cliente</strong>
+                          <strong>
+                            Notas del cliente
+                          </strong>
                           <p>{String(order.notes)}</p>
                         </div>
                       )}
@@ -798,18 +1203,18 @@ function OrdersAdmin({ onBack }) {
                       ) : (
                         <ul className="order-items">
                           {items.map((item, index) => {
-                            const price = getItemPrice(item)
+                            const price =
+                              getItemPrice(item)
+
                             const quantity = Number(
                               item.quantity
                             )
 
                             const validQuantity =
-                              Number.isSafeInteger(quantity) &&
+                              Number.isSafeInteger(
+                                quantity
+                              ) &&
                               quantity > 0
-
-                            const validAmount =
-                              price !== null &&
-                              validQuantity
 
                             return (
                               <li
@@ -831,14 +1236,16 @@ function OrdersAdmin({ onBack }) {
                                     getSelections(
                                       item.selectedAttributes
                                     )
-                                  ).map(([name, value]) => (
-                                    <span
-                                      key={name}
-                                      className="order-item-option"
-                                    >
-                                      {name}: {value}
-                                    </span>
-                                  ))}
+                                  ).map(
+                                    ([name, value]) => (
+                                      <span
+                                        key={name}
+                                        className="order-item-option"
+                                      >
+                                        {name}: {value}
+                                      </span>
+                                    )
+                                  )}
 
                                   <span className="item-quantity">
                                     {validQuantity
@@ -850,12 +1257,15 @@ function OrdersAdmin({ onBack }) {
                                       : "Cantidad no válida"}
 
                                     {price !== null &&
-                                      ` · ${formatMoney(price)} c/u`}
+                                      ` · ${formatMoney(
+                                        price
+                                      )} c/u`}
                                   </span>
                                 </div>
 
                                 <strong className="order-line-total">
-                                  {validAmount
+                                  {price !== null &&
+                                  validQuantity
                                     ? formatMoney(
                                         price * quantity
                                       )
@@ -870,7 +1280,6 @@ function OrdersAdmin({ onBack }) {
                   </details>
                 </div>
 
-                {/* TOTAL Y ACCIONES */}
                 <div className="order-footer">
                   <div className="order-total">
                     <span>Total del pedido</span>
@@ -893,7 +1302,20 @@ function OrdersAdmin({ onBack }) {
                         <button
                           type="button"
                           className="complete-button"
-                          disabled={isProcessing}
+                          disabled={
+                            isProcessing ||
+                            !payment.canComplete
+                          }
+                          aria-describedby={
+                            !payment.canComplete
+                              ? blockedId
+                              : undefined
+                          }
+                          title={
+                            !payment.canComplete
+                              ? payment.reason
+                              : "Completar y descontar stock"
+                          }
                           onClick={() =>
                             changeOrderStatus(
                               order,
@@ -930,9 +1352,13 @@ function OrdersAdmin({ onBack }) {
                           ✓ Stock actualizado
                         </span>
 
-                        {getDate(order.completedAt) && (
+                        {getDate(
+                          order.completedAt
+                        ) && (
                           <small>
-                            {formatDate(order.completedAt)}
+                            {formatDate(
+                              order.completedAt
+                            )}
                           </small>
                         )}
                       </div>
@@ -944,9 +1370,13 @@ function OrdersAdmin({ onBack }) {
                           Pedido cancelado
                         </span>
 
-                        {getDate(order.cancelledAt) && (
+                        {getDate(
+                          order.cancelledAt
+                        ) && (
                           <small>
-                            {formatDate(order.cancelledAt)}
+                            {formatDate(
+                              order.cancelledAt
+                            )}
                           </small>
                         )}
                       </div>
