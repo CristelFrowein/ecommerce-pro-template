@@ -9,6 +9,7 @@ import {
 } from "../server/firebaseAdmin.js"
 
 import {
+  isAllowedDemoPayment,
   reconcilePayment,
   verifyPaymentSignature
 } from "../server/paymentUtils.js"
@@ -35,7 +36,7 @@ export default async function handler(req, res) {
       ok: configured,
       mode: "test",
       message: configured
-        ? "Webhook disponible. Falta probar una compra de prueba completa."
+        ? "Webhook disponible."
         : "Faltan variables del servidor para el webhook."
     })
   }
@@ -100,8 +101,6 @@ export default async function handler(req, res) {
       })
     }
 
-    // Consultamos el recurso directamente en Mercado Pago.
-    // No confiamos en el estado enviado en el aviso.
     const response = await fetch(
       `https://api.mercadopago.com/v1/payments/${id}`,
       {
@@ -122,11 +121,11 @@ export default async function handler(req, res) {
 
     if (
       String(payment.id) !== id ||
-      payment.live_mode !== false
+      !isAllowedDemoPayment(payment)
     ) {
       return res.status(400).json({
         message:
-          "No corresponde a un pago de prueba válido."
+          "El pago no corresponde a las pruebas habilitadas."
       })
     }
 
@@ -209,7 +208,6 @@ export default async function handler(req, res) {
       error.message
     )
 
-    // Mercado Pago podrá reintentar la notificación.
     return res.status(503).json({
       message:
         "No se pudo procesar la notificación. Reintentar."

@@ -1,9 +1,39 @@
 import { Buffer } from "node:buffer"
+import process from "node:process"
 
 import {
   createHmac,
   timingSafeEqual
 } from "node:crypto"
+
+export function isAllowedDemoPayment(payment) {
+  // Entorno sandbox.
+  if (payment.live_mode === false) {
+    return true
+  }
+
+  if (payment.live_mode !== true) {
+    return false
+  }
+
+  // Para cuentas ficticias que operan en infraestructura
+  // de producción, exigimos ambos IDs configurados.
+  const sellerId =
+    process.env.MP_TEST_SELLER_ID?.trim()
+
+  const buyerId =
+    process.env.MP_TEST_BUYER_ID?.trim()
+
+  const validId = /^[1-9]\d{0,29}$/
+
+  return Boolean(
+    validId.test(sellerId || "") &&
+    validId.test(buyerId || "") &&
+    sellerId !== buyerId &&
+    String(payment.collector_id) === sellerId &&
+    String(payment.payer?.id) === buyerId
+  )
+}
 
 export function verifyPaymentSignature(
   { id, signature, requestId },
@@ -65,23 +95,68 @@ export function reconcilePayment(
   const amount = Number(payment.transaction_amount)
   const total = Number(order.total)
 
+  const problems = []
+
+  if (order.paymentMethod !== "mercadopago") {
+    problems.push(
+      "el pedido no tiene Mercado Pago como método"
+    )
+  }
+
+  if (order.paymentMode !== "test") {
+    problems.push(
+      "el pedido no está marcado como prueba"
+    )
+  }
+
+  if (!isAllowedDemoPayment(payment)) {
+    problems.push(
+      "el entorno o las cuentas no corresponden a las pruebas habilitadas en el servidor"
+    )
+  }
+
+  if (payment.external_reference !== orderId) {
+    problems.push(
+      "la referencia externa no coincide con el pedido"
+    )
+  }
+
+  if (payment.currency_id !== "ARS") {
+    problems.push(
+      "la moneda del pago no es ARS"
+    )
+  }
+
   if (
-    order.paymentMethod !== "mercadopago" ||
-    order.paymentMode !== "test" ||
-    payment.live_mode !== false ||
-    payment.external_reference !== orderId ||
-    payment.currency_id !== "ARS" ||
     !order.collectorId ||
     String(order.collectorId) !==
-      String(payment.collector_id) ||
-    !/^\d{1,30}$/.test(id) ||
+      String(payment.collector_id)
+  ) {
+    problems.push(
+      "el vendedor no coincide con el guardado en el pedido"
+    )
+  }
+
+  if (!/^\d{1,30}$/.test(id)) {
+    problems.push(
+      "el identificador del pago no es válido"
+    )
+  }
+
+  if (
     !Number.isFinite(amount) ||
     !Number.isFinite(total) ||
     amount <= 0 ||
     Math.abs(amount - total) > 0.000001
   ) {
+    problems.push(
+      "el importe del pago no coincide con el total del pedido o no es válido"
+    )
+  }
+
+  if (problems.length) {
     throw new Error(
-      "El pago no coincide con el pedido de prueba."
+      `Verificación de pago rechazada: ${problems.join("; ")}.`
     )
   }
 
@@ -95,7 +170,6 @@ export function reconcilePayment(
     )
   }
 
-  // Ignoramos notificaciones repetidas o antiguas.
   if (
     previous &&
     Number(previous.updatedAtMs) >= updatedAtMs
@@ -126,13 +200,20 @@ export function reconcilePayment(
     status = "partially_refunded"
   }
 
+  const testEnvironment =
+    payment.live_mode === false
+      ? "sandbox"
+      : "test_accounts"
+
   const record = {
     id,
     status,
     updatedAtMs,
     amount,
     currency: "ARS",
-    mode: "test"
+    mode: "test",
+    providerLiveMode: payment.live_mode,
+    testEnvironment
   }
 
   const fundsStatuses = [
@@ -143,7 +224,6 @@ export function reconcilePayment(
     "in_mediation"
   ]
 
-  // Otro intento no puede sobrescribir un pago aprobado.
   if (
     order.approvedPaymentId &&
     order.approvedPaymentId !== id
@@ -189,7 +269,8 @@ export function reconcilePayment(
       payment.status_detail || ""
     ).slice(0, 150),
     paymentUpdatedAtMs: updatedAtMs,
-    paymentVerified: true
+    paymentVerified: true,
+    paymentTestEnvironment: testEnvironment
   }
 
   if (fundsStatuses.includes(status)) {
