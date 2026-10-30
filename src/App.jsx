@@ -14,12 +14,12 @@ import Category from "./pages/Category/Category"
 import ProductDetail from "./pages/ProductDetail/ProductDetail"
 import Search from "./pages/Search/Search"
 import NotFound from "./pages/NotFound/NotFound"
+import PaymentResult from "./pages/PaymentResult/PaymentResult"
 
 import { ToastContainer } from "react-toastify"
 
 import "react-toastify/dist/ReactToastify.css"
 
-// Se descarga únicamente cuando se necesita.
 const AdminPage = lazy(
   () => import("./pages/admin/AdminPage")
 )
@@ -52,6 +52,11 @@ function App() {
           <Route
             path="/producto/:id"
             element={<ProductDetail />}
+          />
+
+          <Route
+            path="/pago/resultado"
+            element={<PaymentResult />}
           />
 
           <Route
