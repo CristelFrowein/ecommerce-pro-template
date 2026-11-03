@@ -6,6 +6,7 @@ import { subscribeContent } from "../../services/contentService"
 import CategoryCard from "../../components/CategoryCard/CategoryCard"
 import ProductCard from "../../components/ProductCard/ProductCard"
 import Hero from "../../components/Hero/Hero"
+import RecentlyViewed from "../../components/RecentlyViewed/RecentlyViewed"
 
 import "./Home.css"
 
@@ -165,6 +166,8 @@ function Home() {
             </div>
           </section>
         )}
+
+        <RecentlyViewed />
       </div>
     </div>
   )

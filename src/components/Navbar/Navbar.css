@@ -370,3 +370,273 @@
     transition: none;
   }
 }
+
+/* ==============================
+   ACCESO A FAVORITOS
+============================== */
+
+.navbar .favorites-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  width: 44px;
+  height: 44px;
+
+  border-radius: 8px;
+  color: var(--color-text, #3e3e3e);
+  text-decoration: none;
+}
+
+.navbar .favorites-icon svg {
+  fill: transparent;
+
+  transition:
+    fill 0.18s ease,
+    color 0.18s ease;
+}
+
+.navbar .favorites-icon.is-active {
+  background: #fff1f5;
+  color: #be3455;
+}
+
+.navbar .favorites-icon.is-active svg {
+  fill: currentColor;
+}
+
+.navbar .favorites-badge {
+  position: absolute;
+  top: 0;
+  right: -3px;
+
+  min-width: 19px;
+  padding: 2px 5px;
+
+  border-radius: 999px;
+  background: #be3455;
+  color: white;
+
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.navbar .nav > .navbar-link,
+.navbar .nav > .dropdown {
+  flex-shrink: 0;
+}
+
+/* El buscador pasa antes a la segunda fila. */
+
+@media (max-width: 1100px) {
+  .navbar .navbar-inner {
+    grid-template-columns: minmax(0, 1fr) auto;
+
+    grid-template-areas:
+      "brand links"
+      "search search";
+
+    gap: 10px 18px;
+    padding: 10px 0 14px;
+  }
+}
+
+@media (max-width: 520px) {
+  .navbar .navbar-inner {
+    gap: 8px 10px;
+  }
+
+  .navbar .nav {
+    gap: 6px;
+  }
+
+  .navbar .favorites-icon,
+  .navbar .cart-icon {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Más espacio para logo y controles en celulares pequeños. */
+
+@media (max-width: 420px) {
+  .navbar .navbar-inner {
+    grid-template-columns: minmax(0, 1fr);
+
+    grid-template-areas:
+      "brand"
+      "links"
+      "search";
+
+    gap: 6px;
+  }
+
+  .navbar .nav {
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .navbar .dropdown-menu {
+    position: fixed;
+    top: auto;
+    right: 5%;
+    left: 5%;
+
+    width: auto;
+    max-width: none;
+    margin-top: 8px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .navbar .favorites-icon:hover {
+    background: #fff1f5;
+    color: #be3455;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar .favorites-icon svg {
+    transition: none;
+  }
+}
+
+/* Corazón del menú con el estilo de las tarjetas */
+
+.navbar .favorites-icon {
+  width: 44px;
+  height: 44px;
+
+  border: 1px solid #deded8;
+  border-radius: 50%;
+  background: white;
+  color: #62665b;
+
+  box-shadow: 0 2px 8px #00000014;
+}
+
+.navbar .favorites-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.navbar .favorites-icon.is-active {
+  border-color: #be3455;
+  background: #fff5f7;
+  color: #be3455;
+}
+
+.navbar .favorites-badge {
+  top: -3px;
+  right: -3px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+
+  border: 2px solid white;
+  border-radius: 999px;
+
+  background: #be3455;
+  color: white;
+
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .navbar .favorites-icon:hover {
+    border-color: #be3455;
+    background: #fff5f7;
+    color: #be3455;
+  }
+}
+
+/* ==============================
+   FAVORITOS Y CARRITO COMBINADOS
+============================== */
+
+.navbar .favorites-icon,
+.navbar .cart-icon {
+  width: 44px;
+  height: 44px;
+
+  border: 1px solid #deded8;
+  border-radius: 50%;
+  background: white;
+  color: #62665b;
+
+  box-shadow: 0 2px 8px #00000014;
+}
+
+.navbar .favorites-icon svg,
+.navbar .cart-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+/* Mismo tamaño para ambos contadores */
+
+.navbar .favorites-badge,
+.navbar .cart-badge {
+  top: -3px;
+  right: -3px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 18px;
+  height: 18px;
+  padding: 0 3px;
+  box-sizing: border-box;
+
+  border: 2px solid white;
+  border-radius: 999px;
+  color: white;
+
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.navbar .favorites-badge {
+  background: #be3455;
+}
+
+.navbar .cart-badge {
+  background: var(--color-primary, #6b705c);
+}
+
+/* Favoritos mantiene su estado activo */
+
+.navbar .favorites-icon.is-active {
+  border-color: #be3455;
+  background: #fff5f7;
+  color: #be3455;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .navbar .favorites-icon:hover {
+    border-color: #be3455;
+    background: #fff5f7;
+    color: #be3455;
+  }
+
+  .navbar .cart-icon:hover {
+    border-color: var(--color-primary, #6b705c);
+    background: var(--color-surface, #ede6dd);
+    color: var(--color-primary-dark, #4f5443);
+  }
+}

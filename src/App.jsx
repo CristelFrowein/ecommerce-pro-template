@@ -7,8 +7,8 @@ import {
 } from "react-router-dom"
 
 import Layout from "./components/Layout/Layout"
-
 import Home from "./pages/Home/Home"
+import ScrollToTop from "./components/ScrollToTop"
 
 import { ToastContainer } from "react-toastify"
 
@@ -16,6 +16,10 @@ import "react-toastify/dist/ReactToastify.css"
 
 const Cart = lazy(
   () => import("./pages/Cart/Cart")
+)
+
+const Favorites = lazy(
+  () => import("./pages/Favorites/Favorites")
 )
 
 const Category = lazy(
@@ -61,13 +65,12 @@ function PageLoader() {
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
+
       <Layout>
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route
-              path="/"
-              element={<Home />}
-            />
+            <Route path="/" element={<Home />} />
 
             <Route
               path="/buscar"
@@ -79,9 +82,11 @@ function App() {
               element={<Category />}
             />
 
+            <Route path="/cart" element={<Cart />} />
+
             <Route
-              path="/cart"
-              element={<Cart />}
+              path="/favoritos"
+              element={<Favorites />}
             />
 
             <Route
@@ -99,10 +104,7 @@ function App() {
               element={<AdminPage />}
             />
 
-            <Route
-              path="*"
-              element={<NotFound />}
-            />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </Layout>

@@ -14,6 +14,7 @@ import {
 
 import {
   FiChevronDown,
+  FiHeart,
   FiSearch,
   FiShoppingCart,
   FiX
@@ -21,6 +22,7 @@ import {
 
 import { storeConfig } from "../../config/storeConfig"
 import { CartContext } from "../../context/CartContext"
+import { useFavorites } from "../../hooks/useFavorites"
 import { subscribeContent } from "../../services/contentService"
 import { getStoreName } from "../../utils/storeUtils"
 
@@ -122,6 +124,7 @@ function Navbar() {
   const location = useLocation()
 
   const { cart } = useContext(CartContext)
+  const { favoritesCount } = useFavorites()
 
   const storeName = getStoreName()
 
@@ -129,6 +132,9 @@ function Navbar() {
     (total, item) => total + item.quantity,
     0
   )
+
+  const favoritesActive =
+    location.pathname === "/favoritos"
 
   const initialSearch =
     location.pathname === "/buscar"
@@ -321,6 +327,39 @@ function Navbar() {
           </div>
 
           <Link
+            to="/favoritos"
+            className={`favorites-icon ${
+              favoritesActive ? "is-active" : ""
+            }`}
+            aria-label={`Mis favoritos: ${favoritesCount} ${
+              favoritesCount === 1
+                ? "producto guardado"
+                : "productos guardados"
+            }`}
+            aria-current={
+              favoritesActive ? "page" : undefined
+            }
+            title="Mis favoritos"
+            onClick={() => setOpen(false)}
+          >
+            <FiHeart
+              size={22}
+              aria-hidden="true"
+            />
+
+            {favoritesCount > 0 && (
+              <span
+                className="favorites-badge"
+                aria-hidden="true"
+              >
+                {favoritesCount > 99
+                  ? "99+"
+                  : favoritesCount}
+              </span>
+            )}
+          </Link>
+
+          <Link
             to="/cart"
             className="cart-icon"
             aria-label={`Carrito: ${cartCount} ${
@@ -328,6 +367,7 @@ function Navbar() {
                 ? "producto"
                 : "productos"
             }`}
+            title="Carrito"
             onClick={() => setOpen(false)}
           >
             <FiShoppingCart

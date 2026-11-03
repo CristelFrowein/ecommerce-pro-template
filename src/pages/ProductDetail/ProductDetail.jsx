@@ -15,6 +15,9 @@ import { toast } from "react-toastify"
 
 import { db } from "../../services/firebase"
 import { useCart } from "../../hooks/useCart"
+import { recordProductView } from "../../hooks/useRecentlyViewed"
+
+import ProductImageModal from "../../components/ProductImageModal/ProductImageModal"
 import RelatedProducts from "./RelatedProducts"
 
 import {
@@ -38,9 +41,7 @@ function GalleryImage({
   onOpen
 }) {
   const [failed, setFailed] = useState(false)
-
   const thumbnail = variant === "thumbnail"
-  const modal = variant === "modal"
 
   if (!src || failed) {
     return (
@@ -53,8 +54,8 @@ function GalleryImage({
           alignItems: "center",
           justifyContent: "center",
           gap: thumbnail ? 0 : 12,
-          width: modal ? "min(560px, 100%)" : "100%",
-          height: modal ? "min(420px, 60vh)" : "100%",
+          width: "100%",
+          height: "100%",
           minHeight: thumbnail ? 0 : 160,
           padding: thumbnail ? 4 : 24,
           boxSizing: "border-box",
@@ -91,12 +92,7 @@ function GalleryImage({
         </svg>
 
         {!thumbnail && (
-          <span
-            style={{
-              fontSize: 14,
-              lineHeight: 1.5
-            }}
-          >
+          <span style={{ fontSize: 14, lineHeight: 1.5 }}>
             Imagen no disponible
           </span>
         )}
@@ -109,11 +105,9 @@ function GalleryImage({
       src={src}
       alt={alt}
       className={
-        modal
-          ? "product-modal-image"
-          : thumbnail
-            ? undefined
-            : "product-gallery-main-image"
+        thumbnail
+          ? undefined
+          : "product-gallery-main-image"
       }
       decoding="async"
       draggable={false}
@@ -121,7 +115,9 @@ function GalleryImage({
       onClick={onOpen}
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
-      aria-label={onOpen ? `Ampliar imagen de ${alt}` : undefined}
+      aria-label={
+        onOpen ? `Ampliar imagen de ${alt}` : undefined
+      }
       onKeyDown={
         onOpen
           ? event => {
@@ -173,7 +169,6 @@ function getDescription(description) {
   if (typeof description !== "string") return []
 
   const text = description.trim()
-
   if (!text) return []
 
   try {
@@ -337,6 +332,7 @@ function ProductDetailContent({ id }) {
           getSelectableAttributes(data).length > 0
 
         setProduct(data)
+        recordProductView(data.id)
 
         setRows([
           {
@@ -404,52 +400,8 @@ function ProductDetailContent({ id }) {
     }
   }, [id])
 
-  // GALERÍA Y TECLADO
-
+  // El modal administra su propio teclado y bloqueo de fondo.
   const images = getImages(product)
-
-  useEffect(() => {
-    if (!openModal) return
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        setOpenModal(false)
-      }
-
-      if (
-        images.length > 1 &&
-        event.key === "ArrowRight"
-      ) {
-        event.preventDefault()
-
-        setSelectedImage(
-          previous => (previous + 1) % images.length
-        )
-      }
-
-      if (
-        images.length > 1 &&
-        event.key === "ArrowLeft"
-      ) {
-        event.preventDefault()
-
-        setSelectedImage(
-          previous =>
-            (previous - 1 + images.length) %
-            images.length
-        )
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-
-    return () => {
-      window.removeEventListener(
-        "keydown",
-        handleKeyDown
-      )
-    }
-  }, [openModal, images.length])
 
   // OPCIONES, CANTIDADES Y STOCK
 
@@ -1302,75 +1254,15 @@ function ProductDetailContent({ id }) {
       {/* PRODUCTOS RELACIONADOS */}
       <RelatedProducts products={related} />
 
-      {/* MODAL DE IMAGEN */}
+      {/* GALERÍA AMPLIADA */}
       {openModal && (
-        <div
-          className="product-image-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Imágenes de ${product.name}`}
-          onClick={() => setOpenModal(false)}
-        >
-          <div
-            className="product-image-modal-content"
-            onClick={event => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="product-modal-close"
-              aria-label="Cerrar"
-              onClick={() => setOpenModal(false)}
-            >
-              ×
-            </button>
-
-            {images.length > 1 && (
-              <button
-                type="button"
-                className="product-modal-arrow product-modal-prev"
-                aria-label="Imagen anterior"
-                onClick={() =>
-                  setSelectedImage(
-                    previous =>
-                      (previous - 1 + images.length) %
-                      images.length
-                  )
-                }
-              >
-                ‹
-              </button>
-            )}
-
-            <GalleryImage
-              key={currentImage}
-              src={currentImage}
-              alt={product.name}
-              variant="modal"
-            />
-
-            {images.length > 1 && (
-              <button
-                type="button"
-                className="product-modal-arrow product-modal-next"
-                aria-label="Imagen siguiente"
-                onClick={() =>
-                  setSelectedImage(
-                    previous =>
-                      (previous + 1) % images.length
-                  )
-                }
-              >
-                ›
-              </button>
-            )}
-
-            {images.length > 1 && (
-              <div className="product-modal-counter">
-                {selectedImage + 1} / {images.length}
-              </div>
-            )}
-          </div>
-        </div>
+        <ProductImageModal
+          images={images}
+          selectedImage={selectedImage}
+          productName={product.name}
+          onSelect={setSelectedImage}
+          onClose={setOpenModal}
+        />
       )}
     </main>
   )

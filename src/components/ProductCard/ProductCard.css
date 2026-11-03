@@ -518,3 +518,84 @@
     transform: none;
   }
 }
+
+/* ==============================
+   FAVORITOS
+============================== */
+
+.product-card .product-card-media {
+  position: relative;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+}
+
+.product-card .product-favorite-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+
+  border: 1px solid #deded8;
+  border-radius: 50%;
+  background: white;
+  color: #62665b;
+
+  box-shadow: 0 2px 8px #00000014;
+
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.product-card .product-favorite-btn svg {
+  width: 21px;
+  height: 21px;
+  fill: transparent;
+  pointer-events: none;
+}
+
+.product-card .product-favorite-btn.is-favorite {
+  border-color: #be3455;
+  background: #fff5f7;
+  color: #be3455;
+}
+
+.product-card .product-favorite-btn.is-favorite svg {
+  fill: currentColor;
+}
+
+/* Reserva espacio para que una oferta no choque con el corazón. */
+
+.product-card .product-card-media .discount-badge {
+  max-width: calc(100% - 72px);
+  overflow-wrap: anywhere;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .product-card .product-favorite-btn:hover {
+    border-color: #be3455;
+    color: #be3455;
+    background: #fff5f7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card .product-favorite-btn {
+    transition: none;
+  }
+}

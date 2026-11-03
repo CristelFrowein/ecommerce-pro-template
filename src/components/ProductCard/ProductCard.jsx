@@ -1,8 +1,10 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
+import { FiHeart } from "react-icons/fi"
 import { toast } from "react-toastify"
 
 import { useCart } from "../../hooks/useCart"
+import { useFavorites } from "../../hooks/useFavorites"
 
 import {
   formatMoney,
@@ -73,8 +75,11 @@ function ProductImage({
 function ProductCard({ product }) {
   const navigate = useNavigate()
   const { addToCart } = useCart()
+  const { isFavorite, toggleFavorite } = useFavorites()
 
   if (!product || product.active === false) return null
+
+  const favorite = isFavorite(product.id)
 
   const stock = getStock(product)
   const isOutOfStock = stock <= 0
@@ -91,6 +96,14 @@ function ProductCard({ product }) {
       typeof value === "string" &&
       value.trim()
   )?.trim() || ""
+
+  function handleFavorite() {
+    const result = toggleFavorite(product.id)
+
+    if (!result.ok) {
+      toast.warning(result.message)
+    }
+  }
 
   function handleAddToCart() {
     if (isOutOfStock) return
@@ -132,23 +145,46 @@ function ProductCard({ product }) {
 
   return (
     <div className="product-card">
-      <Link
-        to={`/producto/${product.id}`}
-        className="product-image"
-        draggable={false}
-      >
-        {Number(product.discount) > 0 && (
-          <span className="discount-badge">
-            -{product.discount}%
-          </span>
-        )}
+      <div className="product-card-media">
+        <Link
+          to={`/producto/${product.id}`}
+          className="product-image"
+          draggable={false}
+        >
+          {Number(product.discount) > 0 && (
+            <span className="discount-badge">
+              -{product.discount}%
+            </span>
+          )}
 
-        <ProductImage
-          key={image}
-          src={image}
-          alt={product.name}
-        />
-      </Link>
+          <ProductImage
+            key={image}
+            src={image}
+            alt={product.name}
+          />
+        </Link>
+
+        <button
+          type="button"
+          className={`product-favorite-btn ${
+            favorite ? "is-favorite" : ""
+          }`}
+          aria-label={`${
+            favorite
+              ? "Quitar de favoritos"
+              : "Agregar a favoritos"
+          }: ${product.name}`}
+          aria-pressed={favorite}
+          title={
+            favorite
+              ? "Quitar de favoritos"
+              : "Agregar a favoritos"
+          }
+          onClick={handleFavorite}
+        >
+          <FiHeart aria-hidden="true" />
+        </button>
+      </div>
 
       <div className="product-info">
         <h3 className="product-title">
