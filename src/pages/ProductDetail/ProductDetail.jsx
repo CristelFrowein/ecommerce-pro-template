@@ -15,7 +15,6 @@ import { toast } from "react-toastify"
 
 import { db } from "../../services/firebase"
 import { useCart } from "../../hooks/useCart"
-
 import RelatedProducts from "./RelatedProducts"
 
 import {
@@ -29,21 +28,138 @@ import "./ProductDetail.css"
 import "./ProductPurchase.css"
 
 // ==============================
+// IMAGEN CON REEMPLAZO
+// ==============================
+
+function GalleryImage({
+  src,
+  alt,
+  variant = "main",
+  onOpen
+}) {
+  const [failed, setFailed] = useState(false)
+
+  const thumbnail = variant === "thumbnail"
+  const modal = variant === "modal"
+
+  if (!src || failed) {
+    return (
+      <span
+        role="img"
+        aria-label={`Imagen no disponible de ${alt}`}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: thumbnail ? 0 : 12,
+          width: modal ? "min(560px, 100%)" : "100%",
+          height: modal ? "min(420px, 60vh)" : "100%",
+          minHeight: thumbnail ? 0 : 160,
+          padding: thumbnail ? 4 : 24,
+          boxSizing: "border-box",
+          borderRadius: thumbnail ? 4 : 12,
+          background: "#f3f3ef",
+          color: "#62665b",
+          textAlign: "center"
+        }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          style={{
+            display: "block",
+            flexShrink: 0,
+            width: thumbnail ? 24 : 48,
+            height: thumbnail ? 24 : 48
+          }}
+        >
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="3"
+          />
+          <circle cx="8" cy="8" r="1.5" />
+          <path d="m3 16 5-5 5 5 3-3 5 5" />
+        </svg>
+
+        {!thumbnail && (
+          <span
+            style={{
+              fontSize: 14,
+              lineHeight: 1.5
+            }}
+          >
+            Imagen no disponible
+          </span>
+        )}
+      </span>
+    )
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={
+        modal
+          ? "product-modal-image"
+          : thumbnail
+            ? undefined
+            : "product-gallery-main-image"
+      }
+      decoding="async"
+      draggable={false}
+      onError={() => setFailed(true)}
+      onClick={onOpen}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? `Ampliar imagen de ${alt}` : undefined}
+      onKeyDown={
+        onOpen
+          ? event => {
+              if (
+                event.key === "Enter" ||
+                event.key === " "
+              ) {
+                event.preventDefault()
+                onOpen()
+              }
+            }
+          : undefined
+      }
+    />
+  )
+}
+
+// ==============================
 // HELPERS
 // ==============================
 
 function getImages(product) {
   const images = Array.isArray(product?.images)
-    ? product.images.filter(
-        image =>
-          typeof image === "string" &&
-          image.trim()
-      )
+    ? product.images
+        .filter(
+          image =>
+            typeof image === "string" &&
+            image.trim()
+        )
+        .map(image => image.trim())
     : []
 
   if (images.length > 0) return images
 
-  return product?.image ? [product.image] : []
+  return typeof product?.image === "string" &&
+    product.image.trim()
+    ? [product.image.trim()]
+    : []
 }
 
 function getDescription(description) {
@@ -98,7 +214,6 @@ function getQuantityError(next, current, total, available) {
     return "Ingresá una cantidad válida."
   }
 
-  // Permite reducir cantidades aunque el stock haya bajado.
   if (
     next > current &&
     total - current + next > available
@@ -169,7 +284,6 @@ function QuantityControl({
 function ProductDetail() {
   const { id } = useParams()
 
-  // Reinicia el detalle al navegar a otro producto.
   return <ProductDetailContent key={id} id={id} />
 }
 
@@ -194,9 +308,7 @@ function ProductDetailContent({ id }) {
 
   const nextRowId = useRef(1)
 
-  // ==============================
   // CARGA DEL PRODUCTO
-  // ==============================
 
   useEffect(() => {
     let cancelled = false
@@ -292,9 +404,7 @@ function ProductDetailContent({ id }) {
     }
   }, [id])
 
-  // ==============================
   // GALERÍA Y TECLADO
-  // ==============================
 
   const images = getImages(product)
 
@@ -310,6 +420,8 @@ function ProductDetailContent({ id }) {
         images.length > 1 &&
         event.key === "ArrowRight"
       ) {
+        event.preventDefault()
+
         setSelectedImage(
           previous => (previous + 1) % images.length
         )
@@ -319,6 +431,8 @@ function ProductDetailContent({ id }) {
         images.length > 1 &&
         event.key === "ArrowLeft"
       ) {
+        event.preventDefault()
+
         setSelectedImage(
           previous =>
             (previous - 1 + images.length) %
@@ -337,9 +451,7 @@ function ProductDetailContent({ id }) {
     }
   }, [openModal, images.length])
 
-  // ==============================
   // OPCIONES, CANTIDADES Y STOCK
-  // ==============================
 
   const selectableAttributes =
     getSelectableAttributes(product)
@@ -367,10 +479,7 @@ function ProductDetailContent({ id }) {
   const subtotal =
     Number(product?.price || 0) * totalQuantity
 
-  function canChangeQuantity(
-    nextQuantity,
-    currentQuantity
-  ) {
+  function canChangeQuantity(nextQuantity, currentQuantity) {
     const message = getQuantityError(
       nextQuantity,
       currentQuantity,
@@ -396,12 +505,7 @@ function ProductDetailContent({ id }) {
 
     if (!row) return
 
-    if (
-      !canChangeQuantity(
-        nextQuantity,
-        row.quantity
-      )
-    ) {
+    if (!canChangeQuantity(nextQuantity, row.quantity)) {
       return
     }
 
@@ -422,8 +526,7 @@ function ProductDetailContent({ id }) {
     const existing = rows.find(row =>
       option === null
         ? !row.selectedAttributes[attribute.name]
-        : row.selectedAttributes[attribute.name] ===
-          option
+        : row.selectedAttributes[attribute.name] === option
     )
 
     if (existing) {
@@ -514,9 +617,7 @@ function ProductDetailContent({ id }) {
     )
   }
 
-  // ==============================
   // AGREGAR TODO AL CARRITO
-  // ==============================
 
   function handleAdd() {
     if (
@@ -613,16 +714,12 @@ function ProductDetailContent({ id }) {
     }
   }
 
-  // ==============================
   // ESTADOS DE CARGA
-  // ==============================
 
   if (loading) {
     return (
       <div className="product-detail-loading container">
-        <div className="product-loading-spinner">
-          ⏳
-        </div>
+        <div className="product-loading-spinner">⏳</div>
         <p>Cargando producto...</p>
       </div>
     )
@@ -632,21 +729,13 @@ function ProductDetailContent({ id }) {
     return (
       <div className="product-detail-empty container">
         <span>📦</span>
-
-        <h2>
-          {error || "Producto no encontrado"}
-        </h2>
-
-        <Link to="/">
-          Volver al inicio
-        </Link>
+        <h2>{error || "Producto no encontrado"}</h2>
+        <Link to="/">Volver al inicio</Link>
       </div>
     )
   }
 
-  // ==============================
   // DATOS PARA LA VISTA
-  // ==============================
 
   const stock = getStock(product)
 
@@ -694,9 +783,7 @@ function ProductDetailContent({ id }) {
 
         {product.category && (
           <>
-            <Link
-              to={`/categoria/${product.category}`}
-            >
+            <Link to={`/categoria/${product.category}`}>
               {product.category}
             </Link>
             <span>›</span>
@@ -710,19 +797,16 @@ function ProductDetailContent({ id }) {
         {/* GALERÍA */}
         <div className="product-gallery">
           <div className="product-gallery-main">
-            {currentImage ? (
-              <img
-                src={currentImage}
-                alt={product.name}
-                className="product-gallery-main-image"
-                onClick={() => setOpenModal(true)}
-              />
-            ) : (
-              <div className="product-gallery-placeholder">
-                <span>📷</span>
-                <p>Sin imagen disponible</p>
-              </div>
-            )}
+            <GalleryImage
+              key={currentImage}
+              src={currentImage}
+              alt={product.name}
+              onOpen={
+                currentImage
+                  ? () => setOpenModal(true)
+                  : undefined
+              }
+            />
 
             {images.length > 1 && (
               <div className="product-gallery-counter">
@@ -738,18 +822,16 @@ function ProductDetailContent({ id }) {
                   key={`${image}-${index}`}
                   type="button"
                   className={`product-gallery-thumbnail ${
-                    selectedImage === index
-                      ? "active"
-                      : ""
+                    selectedImage === index ? "active" : ""
                   }`}
-                  onClick={() =>
-                    setSelectedImage(index)
-                  }
+                  onClick={() => setSelectedImage(index)}
                   aria-label={`Ver imagen ${index + 1}`}
+                  aria-pressed={selectedImage === index}
                 >
-                  <img
+                  <GalleryImage
                     src={image}
                     alt={`${product.name} ${index + 1}`}
+                    variant="thumbnail"
                   />
                 </button>
               ))}
@@ -758,7 +840,7 @@ function ProductDetailContent({ id }) {
 
           {images.length > 0 && (
             <p className="product-gallery-hint">
-              🔍 Hacé clic en la imagen para ampliar
+              Tocá una imagen disponible para ampliarla.
             </p>
           )}
         </div>
@@ -835,7 +917,7 @@ function ProductDetailContent({ id }) {
               </p>
             </div>
 
-            {/* PRODUCTOS SIN OPCIONES */}
+            {/* SIN OPCIONES */}
             {noOptions && (
               <div className="purchase-simple-row">
                 <span>Cantidad</span>
@@ -855,7 +937,7 @@ function ProductDetailContent({ id }) {
               </div>
             )}
 
-            {/* UNA SOLA CARACTERÍSTICA */}
+            {/* UNA CARACTERÍSTICA */}
             {singleAttribute && (
               <div className="purchase-options-section">
                 <div className="purchase-section-heading">
@@ -864,59 +946,54 @@ function ProductDetailContent({ id }) {
                 </div>
 
                 <div className="purchase-options-list">
-                  {getOptions(singleAttribute).map(
-                    option => {
-                      const selectedRow = rows.find(
-                        row =>
-                          row.selectedAttributes[
-                            singleAttribute.name
-                          ] === option
-                      )
+                  {getOptions(singleAttribute).map(option => {
+                    const selectedRow = rows.find(
+                      row =>
+                        row.selectedAttributes[
+                          singleAttribute.name
+                        ] === option
+                    )
 
-                      const count =
-                        selectedRow?.quantity || 0
+                    const count =
+                      selectedRow?.quantity || 0
 
-                      return (
-                        <div
-                          key={option}
-                          className={`purchase-option-row ${
-                            count > 0
-                              ? "is-selected"
-                              : ""
-                          }`}
-                        >
-                          <div className="purchase-option-info">
-                            <strong>{option}</strong>
+                    return (
+                      <div
+                        key={option}
+                        className={`purchase-option-row ${
+                          count > 0 ? "is-selected" : ""
+                        }`}
+                      >
+                        <div className="purchase-option-info">
+                          <strong>{option}</strong>
 
-                            {count > 0 && (
-                              <span>
-                                {count}{" "}
-                                {count === 1
-                                  ? "unidad"
-                                  : "unidades"}
-                              </span>
-                            )}
-                          </div>
-
-                          <QuantityControl
-                            value={count}
-                            available={available}
-                            total={totalQuantity}
-                            label={`Cantidad de ${option}`}
-                            onChange={nextQuantity =>
-                              changeSingleOptionQuantity(
-                                singleAttribute,
-                                option,
-                                nextQuantity
-                              )
-                            }
-                          />
+                          {count > 0 && (
+                            <span>
+                              {count}{" "}
+                              {count === 1
+                                ? "unidad"
+                                : "unidades"}
+                            </span>
+                          )}
                         </div>
-                      )
-                    }
-                  )}
 
-                  {/* OPCIÓN SIN ELECCIÓN */}
+                        <QuantityControl
+                          value={count}
+                          available={available}
+                          total={totalQuantity}
+                          label={`Cantidad de ${option}`}
+                          onChange={nextQuantity =>
+                            changeSingleOptionQuantity(
+                              singleAttribute,
+                              option,
+                              nextQuantity
+                            )
+                          }
+                        />
+                      </div>
+                    )
+                  })}
+
                   {singleAttribute.required === false &&
                     (() => {
                       const unspecified = rows.find(
@@ -932,15 +1009,11 @@ function ProductDetailContent({ id }) {
                       return (
                         <div
                           className={`purchase-option-row ${
-                            count > 0
-                              ? "is-selected"
-                              : ""
+                            count > 0 ? "is-selected" : ""
                           }`}
                         >
                           <div className="purchase-option-info">
-                            <strong>
-                              Sin especificar
-                            </strong>
+                            <strong>Sin especificar</strong>
 
                             <span>
                               {singleAttribute.name} opcional
@@ -987,9 +1060,7 @@ function ProductDetailContent({ id }) {
                     <div
                       key={row.id}
                       className={`purchase-combination ${
-                        row.quantity > 0
-                          ? "is-selected"
-                          : ""
+                        row.quantity > 0 ? "is-selected" : ""
                       }`}
                     >
                       <div className="purchase-combination-header">
@@ -1153,10 +1224,7 @@ function ProductDetailContent({ id }) {
 
               <div className="purchase-subtotal">
                 <span>Subtotal</span>
-
-                <strong>
-                  {formatMoney(subtotal)}
-                </strong>
+                <strong>{formatMoney(subtotal)}</strong>
               </div>
             </div>
           </section>
@@ -1164,9 +1232,7 @@ function ProductDetailContent({ id }) {
           {/* DISPONIBILIDAD */}
           <div
             className={`product-detail-stock ${
-              isAvailable
-                ? "available"
-                : "unavailable"
+              isAvailable ? "available" : "unavailable"
             }`}
           >
             <span className="stock-dot" />
@@ -1184,7 +1250,7 @@ function ProductDetailContent({ id }) {
             </span>
           </div>
 
-          {/* AGREGAR TODAS LAS OPCIONES */}
+          {/* AGREGAR AL CARRITO */}
           <button
             type="button"
             className="product-detail-add-button"
@@ -1275,10 +1341,11 @@ function ProductDetailContent({ id }) {
               </button>
             )}
 
-            <img
+            <GalleryImage
+              key={currentImage}
               src={currentImage}
               alt={product.name}
-              className="product-modal-image"
+              variant="modal"
             />
 
             {images.length > 1 && (

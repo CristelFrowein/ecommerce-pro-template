@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "react-toastify"
 
@@ -11,6 +12,64 @@ import {
 
 import "./ProductCard.css"
 
+function ProductImage({
+  src,
+  alt,
+  thumbnail = false
+}) {
+  const [failed, setFailed] = useState(false)
+
+  if (!src || failed) {
+    return (
+      <span
+        className={
+          thumbnail
+            ? "toast-image-placeholder"
+            : "product-image-placeholder"
+        }
+        role="img"
+        aria-label={`Imagen no disponible de ${alt}`}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="3"
+          />
+          <circle cx="8" cy="8" r="1.5" />
+          <path d="m3 16 5-5 5 5 3-3 5 5" />
+        </svg>
+
+        {!thumbnail && (
+          <span>Imagen no disponible</span>
+        )}
+      </span>
+    )
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={thumbnail ? "toast-image" : undefined}
+      loading={thumbnail ? "eager" : "lazy"}
+      decoding="async"
+      draggable={false}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 function ProductCard({ product }) {
   const navigate = useNavigate()
   const { addToCart } = useCart()
@@ -19,8 +78,19 @@ function ProductCard({ product }) {
 
   const stock = getStock(product)
   const isOutOfStock = stock <= 0
-  const hasOptions = getSelectableAttributes(product).length > 0
-  const image = product.image || product.images?.[0] || ""
+  const hasOptions =
+    getSelectableAttributes(product).length > 0
+
+  const image = [
+    product.image,
+    ...(Array.isArray(product.images)
+      ? product.images
+      : [])
+  ].find(
+    value =>
+      typeof value === "string" &&
+      value.trim()
+  )?.trim() || ""
 
   function handleAddToCart() {
     if (isOutOfStock) return
@@ -39,10 +109,11 @@ function ProductCard({ product }) {
 
     toast(
       <div className="cart-toast">
-        <img
+        <ProductImage
+          key={image}
           src={image}
           alt={product.name}
-          className="toast-image"
+          thumbnail
         />
 
         <div className="toast-info">
@@ -72,11 +143,10 @@ function ProductCard({ product }) {
           </span>
         )}
 
-        <img
+        <ProductImage
+          key={image}
           src={image}
           alt={product.name}
-          loading="lazy"
-          draggable={false}
         />
       </Link>
 
