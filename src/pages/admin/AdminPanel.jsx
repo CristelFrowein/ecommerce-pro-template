@@ -4,6 +4,7 @@ import OrdersAdmin from "./OrdersAdmin"
 import ProductsAdmin from "./ProductsAdmin"
 import ProductForm from "./ProductForm"
 import ContentAdmin from "./ContentAdmin"
+import ProductExcelImport from "./ProductExcelImport"
 
 import "./admin.css"
 
@@ -25,6 +26,12 @@ const sections = [
     icon: "➕",
     title: "Crear producto",
     description: "Agregar nuevo"
+  },
+  {
+    id: "import",
+    icon: "📊",
+    title: "Importar Excel",
+    description: "Comparar y actualizar productos"
   },
   {
     id: "categories",
@@ -95,6 +102,10 @@ function AdminPanel() {
 
           {view === "create" && (
             <ProductForm onBack={backToMenu} />
+          )}
+
+          {view === "import" && (
+            <ProductExcelImport />
           )}
 
           {view === "categories" && (
