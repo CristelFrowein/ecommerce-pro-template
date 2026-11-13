@@ -26,6 +26,7 @@ import {
 
 import "./OrdersAdmin.css"
 
+
 const STATUS_LABELS = {
   pending: "Pendiente",
   completed: "Completado",

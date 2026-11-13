@@ -5,6 +5,7 @@ import ProductsAdmin from "./ProductsAdmin"
 import ProductForm from "./ProductForm"
 import ContentAdmin from "./ContentAdmin"
 import ProductExcelImport from "./ProductExcelImport"
+import OrderReports from "./OrderReports"
 
 import "./admin.css"
 
@@ -44,7 +45,13 @@ const sections = [
     icon: "🖼",
     title: "Banners",
     description: "Administrar el inicio"
-  }
+  },
+    {
+    id: "reports",
+    icon: "📈",
+    title: "Reportes de pedidos",
+    description: "Ver el balance y los productos más vendidos"
+  },
 ]
 
 function AdminPanel() {
@@ -94,6 +101,10 @@ function AdminPanel() {
 
           {view === "orders" && (
             <OrdersAdmin />
+          )}
+
+                    {view === "reports" && (
+            <OrderReports />
           )}
 
           {view === "products" && (
