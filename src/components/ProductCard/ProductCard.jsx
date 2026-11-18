@@ -1,3 +1,4 @@
+import { offerInfo } from "../../utils/commerce"
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { FiHeart } from "react-icons/fi"
@@ -79,6 +80,7 @@ function ProductCard({ product }) {
 
   if (!product || product.active === false) return null
 
+  const offer = offerInfo(product)
   const favorite = isFavorite(product.id)
 
   const stock = getStock(product)
@@ -151,9 +153,9 @@ function ProductCard({ product }) {
           className="product-image"
           draggable={false}
         >
-          {Number(product.discount) > 0 && (
+          {offer.discount > 0 && (
             <span className="discount-badge">
-              -{product.discount}%
+              -{offer.discount}%
             </span>
           )}
 
@@ -192,14 +194,14 @@ function ProductCard({ product }) {
         </h3>
 
         <div className="product-price">
-          {Number(product.oldPrice) > 0 && (
+          {offer.oldPrice > 0 && (
             <span className="old-price">
-              {formatMoney(product.oldPrice)}
+              {formatMoney(offer.oldPrice)}
             </span>
           )}
 
           <span className="price">
-            {formatMoney(product.price)}
+            {formatMoney(offer.price)}
           </span>
         </div>
 

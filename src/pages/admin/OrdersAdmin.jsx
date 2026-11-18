@@ -1,3 +1,5 @@
+import { changeOrder } from "../../services/orderService"
+import { fulfillmentLabels, nextFulfillment } from "../../utils/commerce"
 import {
   useEffect,
   useId,
@@ -8,10 +10,10 @@ import {
 
 import {
   collection,
-  doc,
   onSnapshot,
-  runTransaction,
-  serverTimestamp
+  query,
+  orderBy,
+  limit
 } from "firebase/firestore"
 
 import { toast } from "react-toastify"
@@ -19,13 +21,10 @@ import { db } from "../../services/firebase"
 
 import {
   formatMoney,
-  getSelections,
-  getStock,
-  groupQuantities
+  getSelections
 } from "../../utils/cartUtils"
 
 import "./OrdersAdmin.css"
-
 
 const STATUS_LABELS = {
   pending: "Pendiente",
@@ -85,7 +84,7 @@ function getPaymentInfo(order) {
       return {
         isMercadoPago: false,
         method: "WhatsApp",
-        label: "A coordinar",
+        label: order.paymentStatus === "approved" ? "Cobro confirmado" : "A coordinar",
         tone: "neutral",
         group: "whatsapp",
         canComplete: true,
@@ -124,13 +123,13 @@ function getPaymentInfo(order) {
   }
 
   if (order.paymentVerified !== true) {
-    const failed = order.checkoutState === "failed"
+    const failed = ["failed", "expired"].includes(order.checkoutState)
 
     return {
       isMercadoPago: true,
       method,
       label: failed
-        ? "Checkout no iniciado"
+        ? (order.checkoutState === "expired" ? "Checkout vencido" : "Checkout no iniciado")
         : "Sin verificar",
       tone: failed ? "danger" : "warning",
       group: failed ? "failed" : "waiting",
@@ -206,22 +205,6 @@ function getPaymentInfo(order) {
       ? "Pago aprobado y verificado. El estado del pedido se gestiona por separado."
       : "Para completar este pedido, el pago debe estar aprobado, verificado y sin revisiones pendientes."
   }
-}
-
-function needsPaymentReviewOnCancellation(order) {
-  return isMercadoPago(order) && (
-    order.paymentReviewRequired === true ||
-    (
-      order.paymentVerified === true &&
-      [
-        "approved",
-        "partially_refunded",
-        "authorized",
-        "in_mediation",
-        "charged_back"
-      ].includes(order.paymentStatus)
-    )
-  )
 }
 
 const dateFormatter = new Intl.DateTimeFormat(
@@ -353,6 +336,7 @@ function OrdersAdmin({ onBack }) {
   const [error, setError] = useState("")
   const [attempt, setAttempt] = useState(0)
 
+  const [visibleLimit, setVisibleLimit] = useState(50)
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateOrder, setDateOrder] = useState("newest")
@@ -367,7 +351,7 @@ function OrdersAdmin({ onBack }) {
 
   useEffect(() => {
     return onSnapshot(
-      collection(db, "orders"),
+      query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(visibleLimit)),
       snapshot => {
         setOrders(
           snapshot.docs.map(document => ({
@@ -392,7 +376,7 @@ function OrdersAdmin({ onBack }) {
         setLoading(false)
       }
     )
-  }, [attempt])
+  }, [attempt, visibleLimit])
 
   const counts = useMemo(() => {
     const result = {
@@ -497,10 +481,10 @@ function OrdersAdmin({ onBack }) {
 
       if (
         data.orderId !== order.id ||
-        data.mode !== "test"
+        !["test", "live"].includes(data.mode)
       ) {
         throw new Error(
-          "La respuesta no corresponde a este pedido de prueba."
+          "La respuesta no corresponde a este pedido."
         )
       }
 
@@ -535,227 +519,31 @@ function OrdersAdmin({ onBack }) {
     }
   }
 
-  async function changeOrderStatus(order, target) {
-    if (
-      !["completed", "cancelled"].includes(target) ||
-      processingRef.current.has(order.id)
-    ) {
-      return
-    }
-
-    if (getStatus(order) !== "pending") {
-      toast.info(
-        "Solo se pueden modificar pedidos pendientes."
-      )
-      return
-    }
-
-    const payment = getPaymentInfo(order)
-
-    if (
-      target === "completed" &&
-      !payment.canComplete
-    ) {
-      toast.warning(payment.reason)
-      return
-    }
-
-    const cancellationNeedsReview =
-      needsPaymentReviewOnCancellation(order)
-
-    if (target === "cancelled") {
-      const warning = cancellationNeedsReview
-        ? "Este pedido tiene un pago que requiere atención. Cancelar el pedido NO realiza un reembolso en Mercado Pago. Revisá el pago y gestioná la devolución que corresponda.\n\nNo se descontará stock."
-        : payment.isMercadoPago
-          ? "No se descontará stock. Cancelar el pedido no realiza devoluciones en Mercado Pago."
-          : "No se descontará stock."
-
-      if (
-        !window.confirm(
-          `¿Cancelar el pedido ${order.id}?\n\n${warning}`
-        )
-      ) {
-        return
-      }
-    }
-
+  async function manageOrder(order, action) {
+    if (processingRef.current.has(order.id)) return
+    const prior = order.fulfillment || (order.status === "completed" ? "delivered" :
+      order.status === "cancelled" ? "cancelled" : "received")
+    if (action === "cancel" && !window.confirm(order.paymentMethod === "mercadopago"
+      ? "¿Cancelar el pedido? Si hubo un cobro, gestioná el reembolso desde Mercado Pago."
+      : "¿Cancelar este pedido?")) return
+    if (action === "resolve-stock" && !window.confirm("¿Confirmar el pedido con stock disponible ahora?")) return
+    if (action === "paid" && !window.confirm("¿Confirmás que el comercio recibió el importe completo?")) return
     processingRef.current.add(order.id)
-
-    setProcessing(previous => ({
-      ...previous,
-      [order.id]: target
-    }))
-
+    setProcessing(previous => ({ ...previous, [order.id]: action }))
     try {
-      const changed = await runTransaction(
-        db,
-        async transaction => {
-          const orderRef = doc(
-            db,
-            "orders",
-            order.id
-          )
-
-          const orderSnapshot =
-            await transaction.get(orderRef)
-
-          if (!orderSnapshot.exists()) {
-            throw new Error(
-              "El pedido ya no existe."
-            )
-          }
-
-          const currentOrder = {
-            ...orderSnapshot.data(),
-            id: order.id
-          }
-
-          const currentStatus =
-            getStatus(currentOrder)
-
-          if (currentStatus === target) {
-            return false
-          }
-
-          if (currentStatus !== "pending") {
-            throw new Error(
-              `El pedido ya no está pendiente. Estado actual: ${STATUS_LABELS[currentStatus]}.`
-            )
-          }
-
-          if (target === "cancelled") {
-            const needsReview =
-              needsPaymentReviewOnCancellation(
-                currentOrder
-              )
-
-            if (
-              needsReview &&
-              !cancellationNeedsReview
-            ) {
-              throw new Error(
-                "El estado del pago cambió. Revisá el pedido y volvé a cancelar para confirmar el aviso correspondiente."
-              )
-            }
-
-            transaction.update(orderRef, {
-              status: "cancelled",
-              cancelledAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-              ...(
-                needsReview
-                  ? { paymentReviewRequired: true }
-                  : {}
-              )
-            })
-
-            return true
-          }
-
-          // Revisamos el pago actualizado dentro
-          // de la misma transacción del stock.
-          const currentPayment =
-            getPaymentInfo(currentOrder)
-
-          if (!currentPayment.canComplete) {
-            throw new Error(
-              currentPayment.reason
-            )
-          }
-
-          if (
-            !Array.isArray(currentOrder.items) ||
-            currentOrder.items.length === 0
-          ) {
-            throw new Error(
-              "El pedido no tiene productos válidos."
-            )
-          }
-
-          const quantities = groupQuantities(
-            currentOrder.items
-          )
-
-          const updates = []
-
-          // Primero todas las lecturas.
-          for (
-            const [productId, quantity] of quantities
-          ) {
-            const productRef = doc(
-              db,
-              "products",
-              productId
-            )
-
-            const productSnapshot =
-              await transaction.get(productRef)
-
-            if (!productSnapshot.exists()) {
-              throw new Error(
-                "Un producto del pedido ya no existe."
-              )
-            }
-
-            const product = productSnapshot.data()
-            const stock = getStock(product)
-
-            if (quantity > stock) {
-              throw new Error(
-                `Stock insuficiente de "${product.name}". Disponible: ${stock}. Pedido: ${quantity}.`
-              )
-            }
-
-            updates.push({
-              ref: productRef,
-              stock: stock - quantity
-            })
-          }
-
-          // Después todas las escrituras.
-          for (const update of updates) {
-            transaction.update(update.ref, {
-              stock: update.stock
-            })
-          }
-
-          transaction.update(orderRef, {
-            status: "completed",
-            completedAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          })
-
-          return true
-        }
-      )
-
-      if (!changed) {
-        toast.info(
-          target === "completed"
-            ? "El pedido ya estaba completado."
-            : "El pedido ya estaba cancelado."
-        )
-        return
-      }
-
-      toast.success(
-        target === "completed"
-          ? "Pedido completado. Stock actualizado."
-          : "Pedido cancelado sin descontar stock. No se realizaron reembolsos."
-      )
-    } catch (actionError) {
-      console.error(
-        "Error al modificar pedido:",
-        actionError
-      )
-
-      toast.error(
-        actionError.message ||
-        "No se pudo modificar el pedido."
-      )
-    } finally {
-      finishProcessing(order.id)
-    }
+      const result = await changeOrder({
+        id: order.id, action, previous: prior, acknowledged: action === "cancel"
+      })
+      if (action === "tracking") {
+        const url = `${window.location.origin}/pedido/${result.token}`
+        try { await navigator.clipboard.writeText(url); toast.success("Enlace de seguimiento copiado.") }
+        catch { window.prompt("Enlace de seguimiento", url) }
+      } else if (action === "resolve-stock") toast.success("Stock asignado. Ya podés preparar el pedido.")
+      else if (action === "paid") toast.success("Cobro confirmado.")
+      else toast.success(action === "cancel" ? "Pedido cancelado." : fulfillmentLabels[result.fulfillment])
+    } catch (error) {
+      toast.error(error.message)
+    } finally { finishProcessing(order.id) }
   }
 
   return (
@@ -1283,6 +1071,9 @@ function OrdersAdmin({ onBack }) {
 
                 <div className="order-footer">
                   <div className="order-total">
+                    <span>{fulfillmentLabels[order.fulfillment] || STATUS_LABELS[status]}</span>
+                    {order.delivery && <small>{order.delivery.label} · {formatMoney(order.delivery.cost)}</small>}
+                    {order.discount > 0 && <small>Cupón {order.coupon} · −{formatMoney(order.discount)}</small>}
                     <span>Total del pedido</span>
 
                     <strong>
@@ -1298,54 +1089,23 @@ function OrdersAdmin({ onBack }) {
                   </div>
 
                   <div className="order-actions">
-                    {status === "pending" && (
-                      <>
-                        <button
-                          type="button"
-                          className="complete-button"
-                          disabled={
-                            isProcessing ||
-                            !payment.canComplete
-                          }
-                          aria-describedby={
-                            !payment.canComplete
-                              ? blockedId
-                              : undefined
-                          }
-                          title={
-                            !payment.canComplete
-                              ? payment.reason
-                              : "Completar y descontar stock"
-                          }
-                          onClick={() =>
-                            changeOrderStatus(
-                              order,
-                              "completed"
-                            )
-                          }
-                        >
-                          {action === "completed"
-                            ? "Completando..."
-                            : "✓ Completar pedido"}
-                        </button>
-
-                        <button
-                          type="button"
-                          className="cancel-order-button"
-                          disabled={isProcessing}
-                          onClick={() =>
-                            changeOrderStatus(
-                              order,
-                              "cancelled"
-                            )
-                          }
-                        >
-                          {action === "cancelled"
-                            ? "Cancelando..."
-                            : "Cancelar pedido"}
-                        </button>
-                      </>
-                    )}
+                    <button type="button" disabled={isProcessing} onClick={() => manageOrder(order, "tracking")}>
+                      Copiar seguimiento
+                    </button>
+                    {!payment.isMercadoPago && order.status !== "cancelled" && order.paymentStatus !== "approved" &&
+                      <button type="button" disabled={isProcessing} onClick={() => manageOrder(order, "paid")}>Confirmar cobro</button>}
+                    {status === "pending" && order.paymentReviewRequired && order.paymentStatus === "approved" &&
+                      order.reservation?.state === "released" && !order.hasMultipleFundedPayments &&
+                      <button type="button" disabled={isProcessing} onClick={() => manageOrder(order, "resolve-stock")}>Asignar stock al pago aprobado</button>}
+                    {status === "pending" && <>
+                      <button type="button" className="complete-button" disabled={isProcessing || !payment.canComplete}
+                        aria-describedby={!payment.canComplete ? blockedId : undefined}
+                        onClick={() => manageOrder(order, "advance")}>
+                        {action === "advance" ? "Guardando…" : fulfillmentLabels[nextFulfillment(order.fulfillment, order.delivery?.method)]}
+                      </button>
+                      <button type="button" className="cancel-order-button" disabled={isProcessing}
+                        onClick={() => manageOrder(order, "cancel")}>Cancelar pedido</button>
+                    </>}
 
                     {status === "completed" && (
                       <div className="order-final-state">
@@ -1389,6 +1149,9 @@ function OrdersAdmin({ onBack }) {
           })}
         </div>
       )}
+      {orders.length >= visibleLimit && <button type="button" className="admin-back" onClick={() => setVisibleLimit(value => value + 50)}>
+        Cargar pedidos anteriores
+      </button>}
     </div>
   )
 }

@@ -103,13 +103,13 @@ export function reconcilePayment(
     )
   }
 
-  if (order.paymentMode !== "test") {
+  if (!["test", "live"].includes(order.paymentMode)) {
     problems.push(
-      "el pedido no está marcado como prueba"
+      "el modo de pago del pedido es inválido"
     )
   }
 
-  if (!isAllowedDemoPayment(payment)) {
+  if (order.paymentMode === "live" ? payment.live_mode !== true : !isAllowedDemoPayment(payment)) {
     problems.push(
       "el entorno o las cuentas no corresponden a las pruebas habilitadas en el servidor"
     )
@@ -200,7 +200,7 @@ export function reconcilePayment(
     status = "partially_refunded"
   }
 
-  const testEnvironment =
+  const testEnvironment = order.paymentMode === "live" ? "live" :
     payment.live_mode === false
       ? "sandbox"
       : "test_accounts"
@@ -211,7 +211,7 @@ export function reconcilePayment(
     updatedAtMs,
     amount,
     currency: "ARS",
-    mode: "test",
+    mode: order.paymentMode,
     providerLiveMode: payment.live_mode,
     testEnvironment
   }
@@ -231,7 +231,7 @@ export function reconcilePayment(
     return {
       record,
       update: fundsStatuses.includes(status)
-        ? { paymentReviewRequired: true }
+        ? { paymentReviewRequired: true, hasMultipleFundedPayments: true }
         : null
     }
   }

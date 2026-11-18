@@ -8,51 +8,51 @@ import {
 import { useCart } from "../../hooks/useCart"
 
 import {
-  finishPaidCheckout
+  paymentTrackingToken, finishPaidCheckout
 } from "../../services/paymentService"
 
 import "./PaymentResult.css"
 
 const messages = {
   approved: [
-    "Pago de prueba aprobado",
-    "Mercado Pago confirmó el pago ficticio. El comercio continuará con la preparación del pedido."
+    "Pago aprobado",
+    "Mercado Pago confirmó el pago. El comercio continuará con la preparación del pedido."
   ],
   pending: [
     "Tu pago está pendiente",
     "Mercado Pago informó que el pago está pendiente. Esperá su confirmación antes de intentar pagar nuevamente."
   ],
   in_process: [
-    "Pago de prueba en proceso",
+    "Pago en proceso",
     "Mercado Pago está procesando el pago. Esperá su confirmación antes de intentar pagar nuevamente."
   ],
   authorized: [
-    "Pago de prueba autorizado",
+    "Pago autorizado",
     "El pago fue autorizado, pero todavía no está confirmado como cobrado. No vuelvas a pagar este pedido por ahora."
   ],
   rejected: [
-    "Pago de prueba rechazado",
+    "Pago rechazado",
     "Este intento no fue aprobado. Podés volver al carrito para intentar nuevamente."
   ],
   cancelled: [
-    "Pago de prueba cancelado",
+    "Pago cancelado",
     "Este intento de pago fue cancelado. Podés volver al carrito."
   ],
   refunded: [
-    "Pago de prueba reembolsado",
+    "Pago reembolsado",
     "Mercado Pago informó que este pago fue reembolsado."
   ],
   partially_refunded: [
     "Pago con reembolso parcial",
-    "Mercado Pago informó una devolución parcial del pago de prueba."
+    "Mercado Pago informó una devolución parcial del pago."
   ],
   charged_back: [
     "Pago con contracargo",
-    "Este pago de prueba necesita revisión desde la administración."
+    "Este pago necesita revisión desde la administración."
   ],
   in_mediation: [
     "Pago en revisión",
-    "Mercado Pago informó una revisión de este pago de prueba."
+    "Mercado Pago informó una revisión de este pago."
   ],
   unknown: [
     "Estado pendiente de revisión",
@@ -71,6 +71,7 @@ function PaymentResult() {
       orderId
     )
 
+  const trackingToken = paymentTrackingToken(orderId)
   const [attempt, setAttempt] = useState(0)
   const [result, setResult] = useState(null)
 
@@ -105,11 +106,11 @@ function PaymentResult() {
         }
 
         if (
-          data.mode !== "test" ||
+          !["test", "live"].includes(data.mode) ||
           data.orderId !== orderId
         ) {
           throw new Error(
-            "La respuesta del servidor no corresponde a este pedido de prueba."
+            "La respuesta del servidor no corresponde a este pedido."
           )
         }
 
@@ -134,7 +135,7 @@ function PaymentResult() {
         if (
           waiting &&
           !data.reviewRequired &&
-          data.checkoutState !== "failed" &&
+          !["failed", "expired"].includes(data.checkoutState) &&
           checks < 15
         ) {
           timer = setTimeout(
@@ -189,7 +190,7 @@ function PaymentResult() {
   }, [data, orderId, cart, clearCart])
 
   let tone = "waiting"
-  let title = "Consultando pago de prueba…"
+  let title = "Consultando pago…"
   let description =
     "Estamos consultando el estado registrado por el servidor."
 
@@ -212,7 +213,7 @@ function PaymentResult() {
     description =
       "El servidor detectó una situación que debe revisar la administración. No vuelvas a pagar este pedido por ahora."
   } else if (
-    data?.checkoutState === "failed" &&
+    ["failed", "expired"].includes(data?.checkoutState) &&
     !data.verified
   ) {
     tone = "error"
@@ -262,7 +263,9 @@ function PaymentResult() {
         </span>
 
         <div role="status" aria-live="polite">
-          <h1>{title}</h1>
+          {result?.data?.mode === "test" && <p>Mercado Pago DEMO</p>}
+      {trackingToken && <p><Link to={`/pedido/${trackingToken}`}>Ver seguimiento</Link></p>}
+      <h1>{title}</h1>
           <p>{description}</p>
         </div>
 

@@ -1,72 +1,39 @@
 import { useState } from "react"
+import { signInWithEmailAndPassword } from "firebase/auth"
+import { auth } from "../../services/firebase"
 import "./LoginAdmin.css"
 
-const ADMIN_PASSWORD = "1234" // 🔥 cambiá esto
+export default function LoginAdmin() {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
 
-function LoginAdmin({ onLogin }) {
-
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState(false)
-
-  function handleSubmit(e) {
-    e.preventDefault()
-
-    if (password === ADMIN_PASSWORD) {
-      onLogin()
-    } else {
-      setError(true)
+  async function submit(event) {
+    event.preventDefault()
+    const fields = new FormData(event.currentTarget)
+    setBusy(true)
+    setError("")
+    try {
+      await signInWithEmailAndPassword(auth, fields.get("email").trim(), fields.get("password"))
+    } catch {
+      setError("No pudimos iniciar sesión. Revisá tus datos y la configuración de Firebase.")
+    } finally {
+      setBusy(false)
     }
   }
 
-  return (
-    <div className="admin-login">
-
-      <div className="admin-login-card">
-
-        <div className="admin-login-header">
-          <div className="admin-login-icon">
-            🔐
-          </div>
-
-          <h2>Panel Admin</h2>
-          <p>Ingresá para administrar tu tienda</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="admin-login-form">
-
-          <div className="admin-input-group">
-            <label htmlFor="admin-password">
-              Contraseña
-            </label>
-
-            <input
-              id="admin-password"
-              type="password"
-              placeholder="Ingresá tu contraseña"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value)
-                setError(false)
-              }}
-            />
-          </div>
-
-          {error && (
-            <p className="admin-login-error">
-              Contraseña incorrecta
-            </p>
-          )}
-
-          <button type="submit">
-            Ingresar
-          </button>
-
-        </form>
-
+  return <div className="admin-login"><div className="admin-login-card">
+    <div className="admin-login-header"><h2>Panel Admin</h2></div>
+    <form className="admin-login-form" onSubmit={submit}>
+      <div className="admin-input-group">
+        <label htmlFor="admin-email">Correo electrónico</label>
+        <input id="admin-email" name="email" type="email" autoComplete="username" required />
       </div>
-
-    </div>
-  )
+      <div className="admin-input-group">
+        <label htmlFor="admin-password">Contraseña</label>
+        <input id="admin-password" name="password" type="password" autoComplete="current-password" required />
+      </div>
+      {error && <p className="admin-login-error" role="alert">{error}</p>}
+      <button disabled={busy}>{busy ? "Ingresando…" : "Ingresar"}</button>
+    </form>
+  </div></div>
 }
-
-export default LoginAdmin

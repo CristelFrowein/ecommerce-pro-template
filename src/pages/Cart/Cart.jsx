@@ -1,30 +1,21 @@
+import { getProduct } from "../../services/productService"
 import { useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "react-toastify"
 
-import {
-  collection,
-  doc,
-  runTransaction,
-  serverTimestamp
-} from "firebase/firestore"
-
-import { db } from "../../services/firebase"
 import { storeConfig } from "../../config/storeConfig"
 import { useCart } from "../../hooks/useCart"
 
 import CheckoutForm from "../../components/CheckoutForm/CheckoutForm"
 
 import {
-  startDemoCheckout
+  startCheckout
 } from "../../services/paymentService"
 
 import {
   formatMoney,
   getSelections,
-  getStock,
-  groupQuantities,
-  validateSelections
+  getStock
 } from "../../utils/cartUtils"
 
 import "./Cart.css"
@@ -35,7 +26,7 @@ function Cart() {
     removeFromCart,
     clearCart,
     cartTotal,
-    updateQuantity
+    updateQuantity, refreshProducts
   } = useCart()
 
   const [showCheckout, setShowCheckout] = useState(false)
@@ -43,6 +34,20 @@ function Cart() {
   const [confirmation, setConfirmation] = useState(null)
 
   const submittingRef = useRef(false)
+
+  async function refreshCart() {
+    if (submittingRef.current || !cart.length) return
+    submittingRef.current = true
+    setSubmitting(true)
+    try {
+      const ids = [...new Set(cart.map(item => item.productId))]
+      const products = (await Promise.all(ids.map(getProduct))).filter(Boolean)
+      refreshProducts(products)
+      toast.info("Actualizamos precios, opciones y cantidades según el catálogo.")
+    } catch {
+      toast.error("No pudimos actualizar el carrito.")
+    } finally { submittingRef.current = false; setSubmitting(false) }
+  }
 
   function changeQuantity(item, quantity) {
     const result = updateQuantity(
@@ -82,143 +87,25 @@ function Cart() {
     try {
       const notes = formData.notes.trim()
 
-      if (
-        formData.paymentMethod === "mercadopago"
-      ) {
-        const result = await startDemoCheckout({
-          cart,
-          customer,
-          notes
-        })
-
-        // El carrito se conserva durante el pago.
+      if (formData.paymentMethod === "whatsapp" && !/^\d{8,15}$/.test(storeConfig.whatsapp)) {
+        throw new Error("El comercio todavía no configuró su número de WhatsApp.")
+      }
+      const result = await startCheckout({
+        cart, customer, notes, paymentMethod: formData.paymentMethod,
+        deliveryMethod: formData.deliveryMethod, postalCode: formData.postalCode,
+        coupon: formData.coupon, expectedTotal: formData.expectedTotal
+      })
+      if (formData.paymentMethod === "mercadopago") {
         redirecting = true
-
-        window.location.assign(
-          result.redirectUrl
-        )
-
+        window.location.assign(result.redirectUrl)
         return
       }
-
-      if (formData.paymentMethod !== "whatsapp") {
-        throw new Error(
-          "Elegí cómo querés continuar con el pedido."
-        )
-      }
-
-      const items = cart.map(item => ({
-        id: item.productId,
-        productId: item.productId,
-        cartItemId: item.cartItemId,
-        name: item.name,
-        price: Number(item.price),
-        quantity: item.quantity,
-        selectedAttributes: getSelections(
-          item.selectedAttributes
-        )
-      }))
-
-      const quantities = groupQuantities(items)
-      const orderRef = doc(collection(db, "orders"))
-
-      const total = items.reduce(
-        (sum, item) =>
-          sum + item.price * item.quantity,
-        0
-      )
-
-      await runTransaction(
-        db,
-        async transaction => {
-          const currentProducts = new Map()
-
-          for (
-            const [productId, quantity] of quantities
-          ) {
-            const snapshot = await transaction.get(
-              doc(db, "products", productId)
-            )
-
-            if (!snapshot.exists()) {
-              throw new Error(
-                "Un producto ya no existe. Quitalo del carrito para continuar."
-              )
-            }
-
-            const product = {
-              ...snapshot.data(),
-              id: snapshot.id
-            }
-
-            if (product.active === false) {
-              throw new Error(
-                `"${product.name}" ya no está disponible. Quitalo del carrito.`
-              )
-            }
-
-            if (quantity > getStock(product)) {
-              throw new Error(
-                `Stock insuficiente de "${product.name}". Hay ${getStock(product)} unidades disponibles entre todas sus opciones.`
-              )
-            }
-
-            currentProducts.set(
-              productId,
-              product
-            )
-          }
-
-          for (const item of items) {
-            const product = currentProducts.get(
-              item.productId
-            )
-
-            const currentPrice = Number(
-              product.price
-            )
-
-            if (
-              !Number.isFinite(item.price) ||
-              item.price < 0 ||
-              !Number.isFinite(currentPrice) ||
-              currentPrice < 0
-            ) {
-              throw new Error(
-                `"${item.name}" no tiene un precio válido.`
-              )
-            }
-
-            if (currentPrice !== item.price) {
-              throw new Error(
-                `El precio de "${product.name}" cambió. Quitalo del carrito y agregalo nuevamente para actualizarlo.`
-              )
-            }
-
-            validateSelections(
-              product,
-              item.selectedAttributes
-            )
-
-            item.name = product.name
-          }
-
-          transaction.set(orderRef, {
-            customer,
-            notes,
-            items,
-            total,
-            status: "pending",
-            paymentMethod: "whatsapp",
-            paymentStatus: "not_applicable",
-            createdAt: serverTimestamp()
-          })
-        }
-      )
+      const { items, orderId, total, delivery, discount, trackingToken } = result
+      const trackingUrl = `/pedido/${trackingToken}`
 
       const lines = [
         "Hola! Quiero coordinar este pedido:",
-        `Pedido: ${orderRef.id}`,
+        `Pedido: ${orderId}`,
         ""
       ]
 
@@ -240,7 +127,10 @@ function Cart() {
 
       lines.push(
         "",
+        `Entrega: ${delivery.label} · ${formatMoney(delivery.cost)}`,
+        ...(discount ? [`Descuento: ${formatMoney(discount)}`] : []),
         `Total: ${formatMoney(total)}`,
+        `Seguimiento: ${window.location.origin}${trackingUrl}`,
         "",
         `Nombre: ${customer.name}`,
         `Teléfono: ${customer.phone}`,
@@ -255,7 +145,8 @@ function Cart() {
         )}`
 
       setConfirmation({
-        id: orderRef.id,
+        id: orderId,
+        trackingUrl,
         total,
         whatsappUrl
       })
@@ -291,6 +182,8 @@ function Cart() {
   return (
     <div className="cart-page container">
       <h1>Carrito</h1>
+
+      {confirmation && <p><Link to={confirmation.trackingUrl}>Ver seguimiento del pedido</Link></p>}
 
       {confirmation && (
         <section
@@ -330,11 +223,13 @@ function Cart() {
         </div>
       )}
 
+      {cart.length > 0 && <button type="button" className="cart-continue-link" disabled={submitting} onClick={refreshCart}>Actualizar precios y stock</button>}
+
       {cart.map(item => {
         const productQuantity = cart
           .filter(
             product =>
-              product.productId === item.productId
+              product.productId === item.productId && (!item.variants?.length || product.cartItemId === item.cartItemId)
           )
           .reduce(
             (sum, product) =>
@@ -343,7 +238,7 @@ function Cart() {
           )
 
         const reachedStock =
-          productQuantity >= getStock(item)
+          productQuantity >= getStock(item, item.selectedAttributes)
 
         return (
           <div

@@ -1,0 +1,15 @@
+.commerce-admin { display: grid; gap: 1rem; padding-block: 1rem 2rem; }
+.commerce-admin fieldset { display: grid; gap: 1rem; border: 0; min-width: 0; padding: 0; }
+.commerce-admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .9rem; }
+.commerce-admin label { display: grid; gap: .4rem; }
+.commerce-admin input:not([type="checkbox"]), .commerce-admin select, .commerce-admin textarea {
+  width: 100%; border: 1px solid #8c8c9d; border-radius: .5rem; padding: .55rem .7rem;
+  background: var(--surface, #fff); color: #202039; font: inherit;
+}
+.commerce-admin label.commerce-admin-check { display: flex; align-items: center; gap: .5rem; }
+.commerce-admin input[type="checkbox"] { inline-size: 1.15rem; block-size: 1.15rem; }
+.commerce-admin-row { display: grid; gap: .8rem; padding: 1rem; border: 1px solid #858599; border-radius: .75rem; min-width: 0; }
+.commerce-admin-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.commerce-admin button { width: fit-content; padding: .55rem .9rem; border: 1px solid #8888a0; border-radius: .5rem; font: inherit; cursor: pointer; }
+.commerce-admin button:disabled { cursor: wait; opacity: .65; }
+.commerce-admin-small { font-size: .9rem; }

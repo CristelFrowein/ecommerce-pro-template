@@ -1,3 +1,4 @@
+import { findVariant, offerInfo, selectionKey } from "../../utils/commerce"
 import { useEffect, useRef, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 
@@ -347,6 +348,7 @@ function ProductDetailContent({ id }) {
           try {
             const relatedQuery = query(
               collection(db, "products"),
+              where("active", "==", true),
               where("category", "==", data.category),
               limit(12)
             )
@@ -400,8 +402,25 @@ function ProductDetailContent({ id }) {
     }
   }, [id])
 
+  useEffect(() => {
+    if (!product?.name) return
+    const storedTitle = document.title
+    const description = document.querySelector('meta[name="description"]')
+    const storedDescription = description?.content
+    const store = import.meta.env.VITE_STORE_NAME || "Demo Store"
+    document.title = `${product.name} | ${store}`
+    if (description) description.content = String(product.description || `Conocé ${product.name} en ${store}.`).slice(0, 190)
+    return () => {
+      document.title = storedTitle.startsWith(`${product.name} |`) ? `${store} | Tienda online` : storedTitle
+      if (description) description.content = import.meta.env.VITE_STORE_DESCRIPTION || storedDescription || ""
+    }
+  }, [product])
+
   // El modal administra su propio teclado y bloqueo de fondo.
-  const images = getImages(product)
+  const selection = rows.find(row => findVariant(product, row.selectedAttributes))?.selectedAttributes
+  const variantImage = selection && findVariant(product, selection)?.image
+  const images = [...new Set([...(variantImage ? [variantImage] : []), ...getImages(product)])]
+  const offer = offerInfo(product)
 
   // OPCIONES, CANTIDADES Y STOCK
 
@@ -429,7 +448,7 @@ function ProductDetailContent({ id }) {
   )
 
   const subtotal =
-    Number(product?.price || 0) * totalQuantity
+    (offer.price || 0) * totalQuantity
 
   function canChangeQuantity(nextQuantity, currentQuantity) {
     const message = getQuantityError(
@@ -452,11 +471,24 @@ function ProductDetailContent({ id }) {
     return false
   }
 
+  function canAddVariantQuantity(options, quantity, rowId) {
+    if (!product?.variants?.length) return true
+    const key = selectionKey(options)
+    const inCart = cart.filter(item => item.productId === product.id &&
+      selectionKey(item.selectedAttributes) === key).reduce((sum, item) => sum + item.quantity, 0)
+    const inRows = rows.filter(item => item.id !== rowId &&
+      selectionKey(item.selectedAttributes) === key).reduce((sum, item) => sum + item.quantity, 0)
+    if (quantity + inCart + inRows <= getStock(product, options)) return true
+    toast.warning("Elegí una combinación con stock o reducí la cantidad.")
+    return false
+  }
+
   function changeRowQuantity(rowId, nextQuantity) {
     const row = rows.find(item => item.id === rowId)
 
     if (!row) return
 
+    if (nextQuantity > row.quantity && !canAddVariantQuantity(row.selectedAttributes, nextQuantity, row.id)) return
     if (!canChangeQuantity(nextQuantity, row.quantity)) {
       return
     }
@@ -486,7 +518,9 @@ function ProductDetailContent({ id }) {
       return
     }
 
+    const options = option === null ? {} : { [attribute.name]: option }
     if (
+      (nextQuantity > 0 && !canAddVariantQuantity(options, nextQuantity)) ||
       !canChangeQuantity(nextQuantity, 0) ||
       nextQuantity === 0
     ) {
@@ -808,8 +842,9 @@ function ProductDetailContent({ id }) {
           <h1>{product.name}</h1>
 
           <div className="product-price-block">
+            {offer.oldPrice && <del>{formatMoney(offer.oldPrice)}</del>}
             <span className="product-detail-price">
-              {formatMoney(product.price)}
+              {formatMoney(offer.price)}
             </span>
           </div>
 
@@ -1252,6 +1287,13 @@ function ProductDetailContent({ id }) {
       </section>
 
       {/* PRODUCTOS RELACIONADOS */}
+      <div className="product-share">
+        <button type="button" onClick={async () => {
+          const url = `${window.location.origin}/producto/${encodeURIComponent(product.id)}`
+          try { await navigator.clipboard.writeText(url); toast.success("Enlace copiado.") }
+          catch { window.prompt("Enlace del producto", url) }
+        }}>Copiar enlace del producto</button>
+      </div>
       <RelatedProducts products={related} />
 
       {/* GALERÍA AMPLIADA */}

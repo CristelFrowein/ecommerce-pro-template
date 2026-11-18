@@ -38,6 +38,8 @@ const PaymentResult = lazy(
   () => import("./pages/PaymentResult/PaymentResult")
 )
 
+const Tracking = lazy(() => import("./pages/Tracking/Tracking"))
+
 const AdminPage = lazy(
   () => import("./pages/admin/AdminPage")
 )
@@ -103,6 +105,8 @@ function App() {
               path="/admin"
               element={<AdminPage />}
             />
+
+            <Route path="/pedido/:token" element={<Tracking />} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>

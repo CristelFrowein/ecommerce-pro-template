@@ -8,7 +8,7 @@ import {
 
 import { getFirestore } from "firebase-admin/firestore"
 
-export function getAdminDb() {
+export function getAdminApp() {
   const appName = "ecommerce-server"
 
   let app = getApps().find(
@@ -20,6 +20,10 @@ export function getAdminDb() {
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL?.trim()
     const privateKey = process.env.FIREBASE_PRIVATE_KEY
       ?.replace(/\\n/g, "\n")
+
+    if (process.env.FIRESTORE_EMULATOR_HOST && projectId) {
+      return initializeApp({ projectId }, appName)
+    }
 
     if (!projectId || !clientEmail || !privateKey) {
       throw new Error(
@@ -39,5 +43,8 @@ export function getAdminDb() {
     )
   }
 
-  return getFirestore(app)
+  return app
+}
+export function getAdminDb() {
+  return getFirestore(getAdminApp())
 }

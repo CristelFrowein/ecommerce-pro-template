@@ -1,3 +1,5 @@
+import { availableStock, findVariant, offerInfo, selectionKey } from "../src/utils/commerce.js"
+
 export function checkoutError(message, status = 400) {
   return Object.assign(new Error(message), { status })
 }
@@ -134,11 +136,16 @@ export function parseCheckout(body) {
     requestId: body.requestId.toLowerCase(),
     customer,
     notes: text(body.notes, 1000),
+    paymentMethod: body.paymentMethod === "whatsapp" ? "whatsapp" : "mercadopago",
+    deliveryMethod: text(body.deliveryMethod, 15, true),
+    postalCode: text(body.postalCode, 12),
+    coupon: text(body.coupon, 32),
+    expectedTotal: body.expectedTotal,
     items
   }
 }
 
-export function buildOrderItems(items, products) {
+export function buildOrderItems(items, products, { allowFree = false, now = Date.now() } = {}) {
   const quantities = new Map()
   const variants = new Map()
 
@@ -152,14 +159,14 @@ export function buildOrderItems(items, products) {
       )
     }
 
-    const price = Number(product.price)
+    const price = offerInfo(product, now).price
     const cents = Math.round(price * 100)
 
     if (
       !Number.isFinite(price) ||
-      price <= 0 ||
+      (allowFree ? price < 0 : price <= 0) ||
       !Number.isSafeInteger(cents) ||
-      cents <= 0 ||
+      cents < 0 ||
       Math.abs(price * 100 - cents) > 0.000001
     ) {
       throw checkoutError(
@@ -221,11 +228,12 @@ export function buildOrderItems(items, products) {
       )
     }
 
-    const quantity =
-      (quantities.get(item.productId) || 0) +
-      item.quantity
-
-    const stock = Number(product.stock)
+    const variant = findVariant(product, item.selectedAttributes)
+    const key = product.variants?.length
+      ? JSON.stringify([item.productId, selectionKey(item.selectedAttributes)])
+      : item.productId
+    const quantity = (quantities.get(key) || 0) + item.quantity
+    const stock = availableStock(product, item.selectedAttributes)
 
     if (
       !Number.isSafeInteger(quantity) ||
@@ -238,7 +246,7 @@ export function buildOrderItems(items, products) {
       )
     }
 
-    quantities.set(item.productId, quantity)
+    quantities.set(key, quantity)
 
     const cartItemId = JSON.stringify([
       item.productId,
@@ -252,6 +260,7 @@ export function buildOrderItems(items, products) {
       productId: item.productId,
       cartItemId,
       name: String(product.name || "Producto"),
+      sku: variant?.sku || product.sku || "",
       price,
       quantity:
         item.quantity + (existing?.quantity || 0),
@@ -270,7 +279,7 @@ export function buildOrderItems(items, products) {
 
   if (
     !Number.isSafeInteger(totalCents) ||
-    totalCents <= 0
+    (allowFree ? totalCents < 0 : totalCents <= 0)
   ) {
     throw checkoutError(
       "El total del pedido no es válido."

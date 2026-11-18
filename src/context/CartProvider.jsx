@@ -1,3 +1,4 @@
+import { findVariant, offerInfo } from "../utils/commerce"
 import { useEffect, useRef, useState } from "react"
 import { CartContext } from "./CartContext"
 
@@ -150,8 +151,10 @@ export function CartProvider({ children }) {
           )
         }
 
-        const stock = getStock(product)
-        const price = Number(product.price)
+        const selectedAttributes = validateSelections(product, product.selectedAttributes)
+        const variant = findVariant(product, selectedAttributes)
+        const stock = getStock(product, selectedAttributes)
+        const price = offerInfo(product).price
 
         if (stock <= 0) {
           throw new Error(
@@ -168,30 +171,13 @@ export function CartProvider({ children }) {
           )
         }
 
-        const selectedAttributes =
-          validateSelections(
-            product,
-            product.selectedAttributes
-          )
-
         const cartItemId = getCartKey(
           product.id,
           selectedAttributes
         )
 
-        const previousProduct =
-          productsToValidate.get(product.id)
-
-        productsToValidate.set(product.id, {
-          product,
-          price,
-          stock: previousProduct
-            ? Math.min(
-                previousProduct.stock,
-                stock
-              )
-            : stock
-        })
+        const groupKey = variant ? cartItemId : product.id
+        productsToValidate.set(groupKey, { product, price, stock, variant })
 
         const existingIndex = nextCart.findIndex(
           item =>
@@ -225,7 +211,7 @@ export function CartProvider({ children }) {
             price,
             stock,
             image:
-              product.image ||
+              variant?.image || product.image ||
               product.images?.[0] ||
               "",
             selectedAttributes,
@@ -239,11 +225,11 @@ export function CartProvider({ children }) {
        * producto, incluidas las que ya estaban
        * en el carrito.
        */
-      for (const [productId, data] of productsToValidate) {
+      for (const [key, data] of productsToValidate) {
         const totalQuantity = nextCart
           .filter(
             item =>
-              item.productId === productId
+              data.variant ? item.cartItemId === key : item.productId === key
           )
           .reduce(
             (total, item) =>
@@ -257,7 +243,7 @@ export function CartProvider({ children }) {
         ) {
           throw new Error(
             `No hay suficiente stock de "${data.product.name}". ` +
-            `Hay ${data.stock} unidades disponibles entre todas sus opciones, ` +
+            `Hay ${data.stock} unidades disponibles, ` +
             `incluyendo las que ya tenés en el carrito.`
           )
         }
@@ -268,9 +254,7 @@ export function CartProvider({ children }) {
        * variantes de los productos agregados.
        */
       nextCart = nextCart.map(item => {
-        const latest = productsToValidate.get(
-          item.productId
-        )
+        const latest = productsToValidate.get(item.cartItemId) || productsToValidate.get(item.productId)
 
         if (!latest) return item
 
@@ -279,9 +263,10 @@ export function CartProvider({ children }) {
           name: latest.product.name,
           price: latest.price,
           stock: latest.stock,
+          variants: latest.product.variants || [],
           active: true,
           image:
-            latest.product.image ||
+            latest.variant?.image || latest.product.image ||
             latest.product.images?.[0] ||
             ""
         }
@@ -354,7 +339,7 @@ export function CartProvider({ children }) {
       return { ok: true }
     }
 
-    const otherVariantsQuantity = current
+    const otherVariantsQuantity = item.variants?.length ? 0 : current
       .filter(
         product =>
           product.productId === item.productId &&
@@ -368,7 +353,7 @@ export function CartProvider({ children }) {
 
     const maximum = Math.max(
       0,
-      getStock(item) - otherVariantsQuantity
+      getStock(item, item.selectedAttributes) - otherVariantsQuantity
     )
 
     // Permite reducir un carrito antiguo
@@ -429,6 +414,31 @@ export function CartProvider({ children }) {
     0
   )
 
+  function refreshProducts(products) {
+    const map = new Map(products.map(product => [product.id, product]))
+    const next = cartRef.current.flatMap(item => {
+      const product = map.get(item.productId)
+      if (!product) return []
+      try { validateSelections(product, item.selectedAttributes) }
+      catch { return [] }
+      const variant = findVariant(product, item.selectedAttributes)
+      const stock = getStock(product, item.selectedAttributes)
+      if (stock <= 0) return []
+      return [{ ...item, price: offerInfo(product).price, stock, variants: product.variants || [],
+        name: product.name, image: variant?.image || product.image || product.images?.[0] || "",
+        quantity: Math.min(item.quantity, stock) }]
+    })
+    const remaining = new Map()
+    const adjusted = next.flatMap(item => {
+      if (item.variants.length) return [item]
+      const stock = remaining.get(item.productId) ?? item.stock
+      const quantity = Math.min(stock, item.quantity)
+      remaining.set(item.productId, stock - quantity)
+      return quantity > 0 ? [{ ...item, quantity }] : []
+    })
+    commit(adjusted)
+  }
+
   const cartTotal = cart.reduce(
     (total, item) =>
       total + item.price * item.quantity,
@@ -442,6 +452,7 @@ export function CartProvider({ children }) {
         addToCart,
         addItemsToCart,
         updateQuantity,
+        refreshProducts,
         removeFromCart,
         clearCart,
         cartCount,

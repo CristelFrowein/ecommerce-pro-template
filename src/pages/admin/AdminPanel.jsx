@@ -1,3 +1,6 @@
+import CommerceAdmin from "./CommerceAdmin"
+import SalesReports from "./SalesReports"
+import ProductExport from "./ProductExport"
 import { useState } from "react"
 
 import OrdersAdmin from "./OrdersAdmin"
@@ -5,11 +8,14 @@ import ProductsAdmin from "./ProductsAdmin"
 import ProductForm from "./ProductForm"
 import ContentAdmin from "./ContentAdmin"
 import ProductExcelImport from "./ProductExcelImport"
-import OrderReports from "./OrderReports"
 
 import "./admin.css"
 
 const sections = [
+  { id: "delivery", icon: "🚚", title: "Entregas", description: "Configurar retiro y zonas" },
+  { id: "coupons", icon: "🏷", title: "Cupones", description: "Administrar descuentos" },
+  { id: "reports", icon: "📈", title: "Reportes", description: "Ver y exportar ventas" },
+  { id: "export", icon: "📥", title: "Exportar Excel", description: "Descargar catálogo completo" },
   {
     id: "orders",
     icon: "📦",
@@ -45,13 +51,7 @@ const sections = [
     icon: "🖼",
     title: "Banners",
     description: "Administrar el inicio"
-  },
-    {
-    id: "reports",
-    icon: "📈",
-    title: "Reportes de pedidos",
-    description: "Ver el balance y los productos más vendidos"
-  },
+  }
 ]
 
 function AdminPanel() {
@@ -99,12 +99,12 @@ function AdminPanel() {
             ← Volver al menú
           </button>
 
+          {["delivery", "coupons"].includes(view) && <CommerceAdmin key={view} section={view} />}
+          {view === "reports" && <SalesReports />}
+          {view === "export" && <ProductExport />}
+
           {view === "orders" && (
             <OrdersAdmin />
-          )}
-
-                    {view === "reports" && (
-            <OrderReports />
           )}
 
           {view === "products" && (

@@ -38,14 +38,15 @@ async function request(path, options = {}) {
   return data
 }
 
-export async function createDemoPreference(
+export async function createPreference(
   orderId,
   order,
   appUrl
 ) {
   const token = process.env.MP_ACCESS_TOKEN?.trim()
 
-  const sandbox = token?.startsWith("TEST-")
+  const live = order.paymentMode === "live"
+  const sandbox = !live && token?.startsWith("TEST-")
 
   let sellerId = null
 
@@ -53,11 +54,11 @@ export async function createDemoPreference(
     const seller = await request("/users/me")
 
     if (
-      !Array.isArray(seller.tags) ||
-      !seller.tags.includes("test_user")
+      !seller.id || Boolean(seller.tags?.includes("test_user")) === live ||
+      (live && !token?.startsWith("APP_USR-"))
     ) {
       throw new Error(
-        "La demo requiere credenciales de prueba o de un vendedor de prueba."
+        "Las credenciales de Mercado Pago no corresponden al modo configurado."
       )
     }
 
@@ -68,12 +69,7 @@ export async function createDemoPreference(
     `${appUrl}/pago/resultado` +
     `?order=${encodeURIComponent(orderId)}`
 
-  const preference = await request(
-    "/checkout/preferences",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        items: order.items.map(item => ({
+  const preferenceItems = order.items.map(item => ({
           id: item.productId,
           title: item.name.slice(0, 200),
           description: Object.entries(
@@ -88,7 +84,23 @@ export async function createDemoPreference(
           quantity: item.quantity,
           currency_id: "ARS",
           unit_price: item.price
-        })),
+        }))
+  if (order.delivery.cost && !order.discount) preferenceItems.push({
+    id: "shipping", title: "Envío", quantity: 1, currency_id: "ARS", unit_price: order.delivery.cost
+  })
+
+  const preference = await request(
+    "/checkout/preferences",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        items: order.discount > 0
+          ? [{ id: orderId, title: "Pedido con cupón aplicado", quantity: 1, currency_id: "ARS", unit_price: order.total }]
+          : preferenceItems,
+        expires: true,
+        expiration_date_from: new Date().toISOString(),
+        expiration_date_to: new Date(order.preferenceExpiresAtMs).toISOString(),
+        payment_methods: { excluded_payment_types: [{ id: "ticket" }, { id: "atm" }] },
 
         external_reference: orderId,
 
@@ -105,7 +117,7 @@ export async function createDemoPreference(
 
         metadata: {
           order_id: orderId,
-          demo: true
+          demo: !live
         }
       })
     }
@@ -120,7 +132,7 @@ export async function createDemoPreference(
     )
   ) {
     throw new Error(
-      "No se pudo validar la preferencia de prueba."
+      "No se pudo validar la preferencia de pago."
     )
   }
 

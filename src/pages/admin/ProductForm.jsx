@@ -1,7 +1,10 @@
+import ProductCommerceFields from "./ProductCommerceFields"
+import { productCommerceFields } from "../../utils/productCommerce"
 import { useState } from "react"
 
 import {
-  addDoc,
+  writeBatch,
+  doc,
   collection
 } from "firebase/firestore"
 
@@ -505,8 +508,7 @@ function ProductForm({ onBack }) {
     setUploaded(false)
 
     try {
-      await Promise.all(
-        products.map((product, index) => {
+      const documents = products.map((product, index) => {
           const attributes = product.attributes.map(
             attribute => {
               if (attribute.type === "select") {
@@ -541,9 +543,7 @@ function ProductForm({ onBack }) {
             ? [mainImage, ...additionalImages]
             : additionalImages
 
-          return addDoc(
-            collection(db, "products"),
-            {
+          return {
               name: product.name.trim(),
               price: validatedProducts[index].price,
               image: mainImage,
@@ -552,11 +552,14 @@ function ProductForm({ onBack }) {
               description: product.description.trim(),
               stock: validatedProducts[index].stock,
               active: product.active !== false,
-              attributes
-            }
-          )
+              attributes,
+              ...productCommerceFields(product, attributes, validatedProducts[index].price)
+          }
         })
-      )
+      if (documents.length > 400) throw new Error("Creá hasta 400 productos por tanda.")
+      const batch = writeBatch(db)
+      for (const data of documents) batch.set(doc(collection(db, "products")), data)
+      await batch.commit()
 
       setUploaded(true)
 
@@ -688,6 +691,7 @@ function ProductForm({ onBack }) {
                   />
                 </div>
 
+                <ProductCommerceFields product={product} onChange={(field, value) => handleChange(index, field, value)} />
                 <div className="product-create-field">
                   <label>Stock</label>
                   <input

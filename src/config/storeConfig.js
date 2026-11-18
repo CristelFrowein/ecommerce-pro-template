@@ -1,15 +1,17 @@
+const env = import.meta.env
+
 export const storeConfig = {
   // ==============================
   // IDENTIDAD
   // ==============================
 
-  storeName: "Demo Store",
+  storeName: env.VITE_STORE_NAME || "Demo Store",
 
   description:
-    "Explorá nuestro catálogo, elegí tus productos y coordiná tu pedido por WhatsApp.",
+    env.VITE_STORE_DESCRIPTION || "Explorá nuestro catálogo, elegí tus productos y coordiná tu pedido por WhatsApp.",
 
  
-  logo: "/logo.png",
+  logo: env.VITE_STORE_LOGO || "/favicon.svg",
 
   favicon: "/favicon.svg",
 
@@ -30,7 +32,7 @@ export const storeConfig = {
   // ==============================
 
   // Número internacional, sin espacios ni símbolos.
-  whatsapp: "5492230000000",
+  whatsapp: env.VITE_STORE_WHATSAPP || "",
 
   // {storeName} se reemplaza automáticamente.
   whatsappMessage:
@@ -57,9 +59,9 @@ export const storeConfig = {
 
   
   contact: {
-    email: "demo@gmail.com",
-    phone: "5492230000000",
-    address: "Av. demo 123",
+    email: env.VITE_STORE_EMAIL || "",
+    phone: env.VITE_STORE_WHATSAPP || "",
+    address: env.VITE_STORE_ADDRESS || "",
     hours: ""
   },
 
@@ -71,15 +73,15 @@ export const storeConfig = {
   socialLinks: [
     {
       label: "Instagram",
-      url: "instagram.com/demostore"
+      url: env.VITE_STORE_INSTAGRAM || ""
     },
     {
       label: "Facebook",
-      url: "facebook.com/demostore"
+      url: env.VITE_STORE_FACEBOOK || ""
     },
     {
       label: "TikTok",
-      url: ""
+      url: env.VITE_STORE_TIKTOK || ""
     }
   ],
 
@@ -95,3 +97,5 @@ export const storeConfig = {
     copyrightText: "© {year} {storeName}"
   }
 }
+
+export const paymentMode = ["test", "live"].includes(env.VITE_PAYMENT_MODE) ? env.VITE_PAYMENT_MODE : "off"

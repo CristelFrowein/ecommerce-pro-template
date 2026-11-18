@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 
-import { getProducts } from "../../services/productService"
+import { getHomeProducts } from "../../services/productService"
 import { subscribeContent } from "../../services/contentService"
 
 import CategoryCard from "../../components/CategoryCard/CategoryCard"
@@ -47,23 +47,10 @@ function Home() {
 
     async function loadProducts() {
       try {
-        const data = await getProducts()
-
+        const data = await getHomeProducts()
         if (cancelled) return
-
-        const activeProducts = data.filter(
-          product => product.active !== false
-        )
-
-        setProducts(activeProducts.slice(0, 8))
-
-        setOffers(
-          activeProducts
-            .filter(
-              product => Number(product.discount) > 0
-            )
-            .slice(0, 4)
-        )
+        setProducts(data.featured)
+        setOffers(data.offers)
       } catch (error) {
         console.error(
           "Error al cargar productos:",

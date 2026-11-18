@@ -1,3 +1,5 @@
+import { sameProductValue } from "./commerce.js"
+import { productCommerceFields } from "./productCommerce.js"
 import { validateProductNumbers } from "./productValidation.js"
 
 export const IMPORT_FIELDS = [
@@ -7,7 +9,16 @@ export const IMPORT_FIELDS = [
   ["stock", "Stock", ["cantidad", "existencias"]],
   ["image", "Imagen principal", ["imagen", "img", "url imagen"]],
   ["description", "Descripción", ["descripcion"]],
-  ["active", "Activo", ["activo", "estado"]]
+  ["active", "Activo", ["activo", "estado"]],
+  ["id", "ID", ["identificador"]],
+  ["sku", "SKU", ["codigo", "código"]],
+  ["featured", "Destacado", ["destacado"]],
+  ["oldPrice", "Precio anterior", ["precio anterior"]],
+  ["offerFrom", "Oferta desde", ["oferta desde"]],
+  ["offerTo", "Oferta hasta", ["oferta hasta"]],
+  ["images", "Galería", ["galeria", "imagenes"]],
+  ["attributes", "Atributos", ["atributos", "opciones"]],
+  ["variants", "Variantes", ["variantes"]]
 ]
 
 export const IMPORT_STATUS = {
@@ -23,10 +34,10 @@ export const IMPORT_STATUS = {
 }
 
 const headers = new Map(IMPORT_FIELDS.flatMap(([field, , aliases]) =>
-  [field, ...aliases].map(alias => [alias, field])
+  [field, ...aliases].map(alias => [searchText(alias), field])
 ))
 
-const text = value => String(value ?? "").trim()
+function text(value) { return String(value ?? "").trim() }
 
 export function searchText(value) {
   return text(value).normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ")
@@ -89,7 +100,10 @@ function importActive(value) {
 }
 
 function productChanges(source, existing, edits, category) {
-  const name = text(edits.name ?? (existing?.name || source.name))
+  const byIdentifier = Boolean(text(source.id) || text(source.sku))
+  const incomingName = text(source.name)
+  const defaultName = byIdentifier ? incomingName || existing?.name : existing?.name || incomingName
+  const name = text(edits.name ?? defaultName)
   if (!name) throw new Error("Completá el nombre.")
   const { price, stock } = validateProductNumbers({
     price: importNumber(edits.price ?? (text(source.price) ? source.price : existing?.price)),
@@ -107,22 +121,49 @@ function productChanges(source, existing, edits, category) {
     }
   }
 
-  const product = { name, category, price, stock, active, image, description }
-  if (!existing) {
-    return { product, changes: { ...product, images: image ? [image] : [], attributes: [] } }
+  function list(field) {
+    const incoming = text(source[field])
+    if (!incoming) return existing?.[field] || []
+    let value
+    try { value = JSON.parse(incoming) } catch { throw new Error(`La columna ${field} necesita un listado JSON válido.`) }
+    if (!Array.isArray(value) || value.length > 100) throw new Error(`Revisá la lista de ${field}.`)
+    return value
   }
+  const attributes = list("attributes").map(item => {
+    if (!item || typeof item.name !== "string" || !item.name.trim()) throw new Error("Un atributo no tiene nombre.")
+    if (item.type === "select" && Array.isArray(item.options) && item.options.every(value => typeof value === "string" && value.trim())) {
+      return { name: item.name.trim(), type: "select", options: item.options.map(value => value.trim()), required: item.required !== false }
+    }
+    if (item.type === "info") return { name: item.name.trim(), type: "info", value: text(item.value) }
+    throw new Error("Revisá el tipo y las opciones de los atributos.")
+  })
+  if (new Set(attributes.map(item => searchText(item.name))).size !== attributes.length) {
+    throw new Error("Hay atributos con nombres repetidos.")
+  }
+  const newSku = text(source.sku) || existing?.sku || ""
+  const commerce = productCommerceFields({
+    name, active, sku: newSku,
+    oldPrice: text(source.oldPrice) ? importNumber(source.oldPrice) : existing?.oldPrice,
+    offerFrom: text(source.offerFrom) || existing?.offerFrom,
+    offerTo: text(source.offerTo) || existing?.offerTo,
+    featured: text(source.featured) ? importActive(source.featured) : existing?.featured,
+    variants: list("variants").map(variant => ({ ...variant, heldStock: existing?.variants?.find(item => item.id === variant?.id)?.heldStock || 0 }))
+  }, attributes, price)
+  let images = list("images")
+  if (images.some(url => typeof url !== "string")) throw new Error("La galería necesita una lista de URLs.")
+  if (image !== text(existing?.image) && !text(source.images)) {
+    images = [...(image ? [image] : []), ...images.filter(url => url !== existing?.image && url !== image)]
+  }
+  const product = { name, category, price, stock, active, image, images, description, attributes, ...commerce }
+  if (!existing) return { product, changes: product }
 
-  const before = {
-    name: text(existing.name), category: existing.category, price: Number(existing.price),
-    stock: Number(existing.stock ?? 0), active: existing.active !== false,
-    image: text(existing.image), description: text(existing.description)
-  }
-  const changes = Object.fromEntries(Object.entries(product).filter(([field, value]) => value !== before[field]))
-  if ("image" in changes) {
-    const gallery = Array.isArray(existing.images) ? existing.images : []
-    const additional = gallery.filter(url => url !== before.image && url !== image)
-    changes.images = image ? [image, ...additional] : additional
-  }
+  const before = { ...existing, name: text(existing.name), category: existing.category, price: Number(existing.price),
+    stock: Number(existing.stock ?? 0), active: existing.active !== false, image: text(existing.image),
+    description: text(existing.description) }
+  const defaults = { sku: "", variants: [], images: [], attributes: [], featured: false, oldPrice: null, offerFrom: "", offerTo: "" }
+  const changes = Object.fromEntries(Object.entries(product).filter(([field, value]) =>
+    !sameProductValue(value, before[field] ?? defaults[field])))
+
   return { product, changes }
 }
 
@@ -147,6 +188,7 @@ function nameSuggestions(name, tokenIndex, tokenCounts) {
 export function buildImportPreview(rows, products, categories, category, rowOptions, saved) {
   const byId = new Map(products.map(product => [product.id, product]))
   const byName = new Map()
+  const bySku = new Map()
   const byExcelName = new Map()
   const tokenIndex = new Map()
   const tokenCounts = new Map()
@@ -154,6 +196,8 @@ export function buildImportPreview(rows, products, categories, category, rowOpti
     const key = productKey(product.name)
     if (!byName.has(key)) byName.set(key, [])
     byName.get(key).push(product)
+    const sku = text(product.sku).toUpperCase()
+    if (sku) bySku.set(sku, [...(bySku.get(sku) || []), product])
     const tokens = nameTokens(product.name)
     tokenCounts.set(product.id, tokens.size)
     for (const token of tokens) {
@@ -201,7 +245,11 @@ export function buildImportPreview(rows, products, categories, category, rowOpti
 
     const name = options.edits?.name ?? source.name
     const key = productKey(source.name)
-    const exact = key ? byName.get(key) ?? [] : []
+    const id = text(source.id)
+    const sku = text(source.sku).toUpperCase()
+    const direct = id ? byId.get(id) : null
+    const skuMatches = sku ? bySku.get(sku) : null
+    const exact = id ? (direct ? [direct] : []) : skuMatches || (key ? byName.get(key) ?? [] : [])
     const existing = options.target === "new"
       ? undefined
       : options.target ? byId.get(options.target) : exact.length === 1 ? exact[0] : undefined
@@ -211,12 +259,14 @@ export function buildImportPreview(rows, products, categories, category, rowOpti
     const similarRows = key ? byExcelName.get(key).filter(number => number !== row.number) : []
     const matched = { ...base, existing, suggestions, similarRows, exact: exact.length === 1 }
 
-    if (!existing && !options.target && (suggestions.length || similarRows.length)) {
-      return { ...matched, status: "review", message: "Elegí un producto existente o confirmá el alta." }
+    if (!existing && !options.target && (id || suggestions.length || similarRows.length)) {
+      return { ...matched, status: "review", message: id && !direct ? "El ID no está en la categoría. Elegí un producto existente o confirmá el alta." : "Elegí un producto existente o confirmá el alta." }
     }
 
     try {
       const { product, changes } = productChanges(source, existing, options.edits ?? {}, category)
+      const skuConflicts = product.sku && (bySku.get(product.sku.toUpperCase()) || []).some(item => item.id !== existing?.id)
+      if (skuConflicts) throw new Error("Ese SKU ya está asignado a otro producto de esta categoría.")
       const sameName = byName.get(productKey(product.name)) ?? []
       if (
         (!existing || productKey(product.name) !== productKey(existing.name)) &&
@@ -226,7 +276,7 @@ export function buildImportPreview(rows, products, categories, category, rowOpti
       }
 
       const priceChanged = Object.hasOwn(changes, "price")
-      const detailsChanged = Object.keys(changes).some(field => field !== "price")
+      const detailsChanged = Object.keys(changes).some(field => !["price", "sortPrice", "nextPriceChangeAtMs", "sortName", "searchPrefixes"].includes(field))
       const status = !existing ? "new"
         : priceChanged && detailsChanged ? "both"
           : priceChanged ? "price"
@@ -241,6 +291,7 @@ export function buildImportPreview(rows, products, categories, category, rowOpti
 export function importConflicts(selected) {
   const targets = new Map()
   const names = new Map()
+  const skus = new Map()
   const conflicts = new Map()
   for (const row of selected) {
     const target = row.existing?.id
@@ -248,11 +299,16 @@ export function importConflicts(selected) {
       if (!targets.has(target)) targets.set(target, [])
       targets.get(target).push(row)
     }
+    const sku = row.product.sku?.toUpperCase()
+    if (sku) {
+      if (!skus.has(sku)) skus.set(sku, [])
+      skus.get(sku).push(row)
+    }
     const identity = importIdentity(row.product.category, row.product.name)
     if (!names.has(identity)) names.set(identity, [])
     names.get(identity).push(row)
   }
-  for (const group of [...targets.values(), ...names.values()]) {
+  for (const group of [...targets.values(), ...names.values(), ...skus.values()]) {
     if (group.length < 2) continue
     for (const row of group) {
       const others = conflicts.get(row.number) ?? new Set()

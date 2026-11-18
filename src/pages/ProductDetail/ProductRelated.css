@@ -282,3 +282,5 @@
     background: var(--color-surface, #ede6dd);
   }
 }
+.product-share { margin-block: 1.5rem; }
+.product-share button { padding: .65rem 1rem; border: 1px solid currentColor; border-radius: .75rem; font: inherit; cursor: pointer; }

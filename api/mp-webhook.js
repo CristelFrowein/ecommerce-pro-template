@@ -1,3 +1,4 @@
+import { reservationOnPayment } from "../server/inventory.js"
 import process from "node:process"
 
 import {
@@ -9,7 +10,6 @@ import {
 } from "../server/firebaseAdmin.js"
 
 import {
-  isAllowedDemoPayment,
   reconcilePayment,
   verifyPaymentSignature
 } from "../server/paymentUtils.js"
@@ -27,14 +27,14 @@ export default async function handler(req, res) {
     secret &&
     token &&
     process.env.FIREBASE_PROJECT_ID?.trim() &&
-    process.env.FIREBASE_CLIENT_EMAIL?.trim() &&
-    process.env.FIREBASE_PRIVATE_KEY?.trim()
+    (process.env.FIRESTORE_EMULATOR_HOST ||
+      process.env.FIREBASE_CLIENT_EMAIL?.trim() && process.env.FIREBASE_PRIVATE_KEY?.trim())
   )
 
   if (req.method === "GET") {
     return res.status(configured ? 200 : 503).json({
       ok: configured,
-      mode: "test",
+      mode: process.env.PAYMENT_MODE || "off",
       message: configured
         ? "Webhook disponible."
         : "Faltan variables del servidor para el webhook."
@@ -120,12 +120,11 @@ export default async function handler(req, res) {
     const payment = await response.json()
 
     if (
-      String(payment.id) !== id ||
-      !isAllowedDemoPayment(payment)
+      String(payment.id) !== id
     ) {
       return res.status(400).json({
         message:
-          "El pago no corresponde a las pruebas habilitadas."
+          "El identificador del pago no coincide."
       })
     }
 
@@ -182,6 +181,7 @@ export default async function handler(req, res) {
         )
 
         if (!changes) return
+        const reservation = await reservationOnPayment(db, transaction, order, changes.update)
 
         transaction.set(paymentRef, {
           ...changes.record,
@@ -192,6 +192,7 @@ export default async function handler(req, res) {
         if (changes.update) {
           transaction.update(orderRef, {
             ...changes.update,
+            ...reservation,
             paymentVerifiedAt:
               FieldValue.serverTimestamp()
           })

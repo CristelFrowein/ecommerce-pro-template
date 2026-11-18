@@ -45,6 +45,10 @@ function Favorites() {
           const id = batch[position]
 
           if (response.status === "rejected") {
+            if (response.reason?.code === "permission-denied") {
+              entries.push({ id, state: "unavailable" })
+              return
+            }
             console.error(
               "No se pudo consultar un favorito:",
               response.reason

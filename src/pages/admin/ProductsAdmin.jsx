@@ -1,3 +1,6 @@
+import { sameProductValue, searchWords } from "../../utils/commerce"
+import ProductCommerceFields from "./ProductCommerceFields"
+import { productCommerceFields } from "../../utils/productCommerce"
 import {
   useEffect,
   useRef,
@@ -8,11 +11,12 @@ import {
   collection,
   getDocs,
   deleteDoc,
-  updateDoc,
+  runTransaction,
   doc,
   query,
   limit,
-  startAfter
+  startAfter,
+  where
 } from "firebase/firestore"
 
 import { db } from "../../services/firebase"
@@ -34,6 +38,8 @@ const PRODUCTS_PER_PAGE = 10
 function ProductsAdmin({ onBack }) {
   const [products, setProducts] = useState([])
 
+  const [search, setSearch] = useState("")
+  const [searchInput, setSearchInput] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [loadError, setLoadError] = useState("")
@@ -44,6 +50,7 @@ function ProductsAdmin({ onBack }) {
   const [updated, setUpdated] = useState({})
 
   const pageCursors = useRef([])
+  const sourceProducts = useRef(new Map())
   const categoryState = useProductCategories()
 
   // ==============================
@@ -74,29 +81,28 @@ function ProductsAdmin({ onBack }) {
 
         // Pedimos uno adicional para saber
         // si realmente hay otra página.
-        const productsQuery = currentPage === 1
-          ? query(
-              productsRef,
-              limit(PRODUCTS_PER_PAGE + 1)
-            )
-          : query(
-              productsRef,
-              startAfter(previousCursor),
-              limit(PRODUCTS_PER_PAGE + 1)
-            )
-
+        const terms = searchWords(search).sort((a, b) => b.length - a.length)
+        const term = terms[0]
+        const productsQuery = query(productsRef,
+          ...(term ? [where("searchPrefixes", "array-contains", term.slice(0, 40))] : []),
+          ...(previousCursor ? [startAfter(previousCursor)] : []),
+          limit(PRODUCTS_PER_PAGE + 1)
+        )
         const snap = await getDocs(productsQuery)
 
         if (cancelled) return
 
-        const visible = snap.docs.slice(
-          0,
-          PRODUCTS_PER_PAGE
-        )
+        const batch = snap.docs.slice(0, PRODUCTS_PER_PAGE)
+        const visible = batch.filter(document => {
+          const product = document.data()
+          const words = searchWords([product.name, product.sku, ...(product.variants || []).map(variant => variant.sku)].join(" "))
+          return terms.every(term => words.some(word => word.startsWith(term)))
+        })
 
         pageCursors.current[currentPage] =
-          visible[visible.length - 1] || null
+          batch.at(-1) || null
 
+        sourceProducts.current = new Map(visible.map(document => [document.id, document.data()]))
         setProducts(
           visible.map(document => ({
             ...document.data(),
@@ -132,7 +138,7 @@ function ProductsAdmin({ onBack }) {
     return () => {
       cancelled = true
     }
-  }, [currentPage, loadAttempt])
+  }, [currentPage, loadAttempt, search])
 
   function retryProducts() {
     setLoading(true)
@@ -497,9 +503,7 @@ function ProductsAdmin({ onBack }) {
         })
         .filter(attribute => attribute.name)
 
-      await updateDoc(
-        doc(db, "products", product.id),
-        {
+      const patch = {
           name,
           price: validatedNumbers.price,
           category,
@@ -510,9 +514,22 @@ function ProductsAdmin({ onBack }) {
           active: product.active !== false,
           image: images[0] || "",
           images,
-          attributes
+          attributes,
+          ...productCommerceFields(product, attributes, validatedNumbers.price)
+      }
+      const ref = doc(db, "products", product.id)
+      const baseline = sourceProducts.current.get(product.id)
+      await runTransaction(db, async transaction => {
+        const current = (await transaction.get(ref)).data()
+        if (!current || !baseline || Object.keys(patch).some(field =>
+          !sameProductValue(current[field], baseline[field])
+        )) throw new Error("El producto cambió en el catálogo. Recargá la página antes de guardar.")
+        if (current.heldUnits > 0 && !sameProductValue(current.variants || [], patch.variants || [])) {
+          throw new Error("Hay unidades reservadas. Podés editar las variantes cuando termine el pago o venza la reserva.")
         }
-      )
+        transaction.update(ref, patch)
+      })
+      sourceProducts.current.set(product.id, { ...baseline, ...patch })
 
       setUpdated(previous => ({
         ...previous,
@@ -622,6 +639,18 @@ function ProductsAdmin({ onBack }) {
         </button>
       </div>
 
+      <form className="commerce-admin" onSubmit={event => {
+        event.preventDefault()
+        pageCursors.current = []
+        setLoading(true)
+        setCurrentPage(1)
+        setSearch(searchInput.trim())
+        setLoadAttempt(value => value + 1)
+      }}>
+        <label>Buscar por nombre o SKU<input type="search" value={searchInput} placeholder="Ej. remera o SKU-123"
+          onChange={event => setSearchInput(event.target.value)} /></label>
+        <button>Buscar</button>
+      </form>
       <div className="products-admin-list">
         {loading ? (
           <div className="products-empty">
@@ -741,6 +770,7 @@ function ProductsAdmin({ onBack }) {
                       />
                     </div>
 
+                    <ProductCommerceFields product={product} onChange={(field, value) => handleChange(product.id, field, value)} />
                     <div className="product-field">
                       <label>Stock</label>
 

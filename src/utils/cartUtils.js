@@ -1,3 +1,4 @@
+import { availableStock } from "./commerce"
 import { storeConfig } from "../config/storeConfig"
 
 const moneyFormatter = new Intl.NumberFormat(
@@ -14,12 +15,8 @@ const moneyFormatter = new Intl.NumberFormat(
   }
 )
 
-export function getStock(product) {
-  const stock = Number(product?.stock)
-
-  return Number.isFinite(stock)
-    ? Math.max(0, Math.floor(stock))
-    : 0
+export function getStock(product, options) {
+  return availableStock(product, options)
 }
 
 export function formatMoney(value) {

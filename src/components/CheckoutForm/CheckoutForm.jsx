@@ -1,3 +1,5 @@
+import { paymentMode } from "../../config/storeConfig"
+import { checkoutQuote } from "../../services/orderService"
 import { useEffect, useRef, useState } from "react"
 
 import {
@@ -20,11 +22,40 @@ function CheckoutForm({
     phone: "",
     address: "",
     notes: "",
-    paymentMethod: "whatsapp"
+    paymentMethod: "whatsapp", deliveryMethod: "", postalCode: "", coupon: ""
   })
 
   const [error, setError] = useState("")
   const formRef = useRef(null)
+  const [methods, setMethods] = useState(null)
+  const [quote, setQuote] = useState(null)
+  const [quoteError, setQuoteError] = useState("")
+  const { deliveryMethod, postalCode, coupon } = form
+  const quoteKey = JSON.stringify([deliveryMethod, postalCode, coupon, total])
+  const currentQuote = quote?.key === quoteKey ? quote.value : null
+
+  useEffect(() => {
+    const controller = new AbortController()
+    checkoutQuote({}, controller.signal).then(options => {
+      if (controller.signal.aborted) return
+      setMethods(options)
+      setForm(previous => ({ ...previous, deliveryMethod: options.pickup ? "pickup" : options.shipping ? "shipping" : "" }))
+    }).catch(failure => { if (!controller.signal.aborted) setQuoteError(failure.message) })
+    return () => controller.abort()
+  }, [])
+
+  useEffect(() => {
+    if (!deliveryMethod || (deliveryMethod === "shipping" && !postalCode.trim())) return
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      checkoutQuote({ subtotal: total, deliveryMethod, postalCode, coupon }, controller.signal).then(value => {
+        if (controller.signal.aborted) return
+        setQuote({ key: quoteKey, value })
+        setQuoteError("")
+      }).catch(failure => { if (!controller.signal.aborted) setQuoteError(failure.message) })
+    }, 300)
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [coupon, deliveryMethod, postalCode, quoteKey, total])
 
   useEffect(() => {
     const previousFocus = document.activeElement
@@ -47,6 +78,7 @@ function CheckoutForm({
     }))
 
     setError("")
+    setQuoteError("")
   }
 
   function handleSubmit(event) {
@@ -62,7 +94,12 @@ function CheckoutForm({
       return
     }
 
-    onConfirm(form)
+    if (!currentQuote || (deliveryMethod === "shipping" && !form.address.trim())) {
+      setError("Revisá la entrega y completá los datos del envío.")
+      return
+    }
+
+    onConfirm({ ...form, expectedTotal: currentQuote.total })
   }
 
   function handleKeyDown(event) {
@@ -110,7 +147,7 @@ function CheckoutForm({
       ? "Abriendo Mercado Pago..."
       : "Guardando..."
     : isMercadoPago
-      ? "Ir a Mercado Pago DEMO"
+      ? (paymentMode === "test" ? "Ir a Mercado Pago DEMO" : "Ir a Mercado Pago")
       : "Confirmar por WhatsApp"
 
   return (
@@ -223,8 +260,31 @@ function CheckoutForm({
           </div>
 
           <div className="input-group">
+            <label htmlFor="checkout-delivery">Entrega</label>
+            <select id="checkout-delivery" name="deliveryMethod" value={deliveryMethod} onChange={handleChange} disabled={submitting || !methods}>
+              {!methods && <option value="">Cargando opciones…</option>}
+              {methods?.pickup && <option value="pickup">{methods.pickupLabel}</option>}
+              {methods?.shipping && <option value="shipping">Envío a domicilio</option>}
+            </select>
+          </div>
+          {deliveryMethod === "shipping" && <div className="input-group">
+            <label htmlFor="checkout-postal">Código postal</label>
+            <input id="checkout-postal" name="postalCode" autoComplete="postal-code" value={postalCode} onChange={handleChange} disabled={submitting} required />
+          </div>}
+          <div className="input-group">
+            <label htmlFor="checkout-coupon">Cupón de descuento</label>
+            <input id="checkout-coupon" name="coupon" maxLength={32} value={coupon} onChange={handleChange} disabled={submitting} />
+          </div>
+          {quoteError && <p role="alert">{quoteError}</p>}
+          {currentQuote && <p aria-live="polite">
+            Entrega {formatMoney(currentQuote.delivery.cost)} ·
+            {currentQuote.discount > 0 && ` Descuento ${formatMoney(currentQuote.discount)} ·`}
+            {" "}Total final <strong>{formatMoney(currentQuote.total)}</strong>
+          </p>}
+
+          <div className="input-group">
             <label htmlFor="checkout-address">
-              Dirección (opcional)
+              {deliveryMethod === "shipping" ? "Dirección de envío" : "Dirección (opcional)"}
             </label>
 
             <input
@@ -273,13 +333,13 @@ function CheckoutForm({
                 Coordinar por WhatsApp
               </option>
 
-              <option value="mercadopago">
-                Mercado Pago DEMO
-              </option>
+              {paymentMode !== "off" && <option value="mercadopago">
+                {paymentMode === "test" ? "Mercado Pago DEMO" : "Mercado Pago"}
+              </option>}
             </select>
           </div>
 
-          {isMercadoPago && (
+          {isMercadoPago && paymentMode === "test" && (
             <p className="checkout-payment-note">
               Vas a abrir el checkout de prueba de
               Mercado Pago. Usá exclusivamente sus
@@ -288,8 +348,7 @@ function CheckoutForm({
           )}
 
           <p>
-            El pedido queda pendiente de
-            confirmación y no reserva stock.
+            {isMercadoPago ? "El stock se reserva mientras completás el pago." : "El comercio confirma el pedido y la disponibilidad por WhatsApp."}
           </p>
 
           {error && (
@@ -300,7 +359,7 @@ function CheckoutForm({
             <button
               type="submit"
               className="confirm-btn"
-              disabled={submitting}
+              disabled={submitting || !currentQuote}
             >
               {buttonText}
             </button>

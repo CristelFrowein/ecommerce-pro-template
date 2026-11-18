@@ -32,6 +32,10 @@ function readNumber(value, label, integer = false) {
     )
   }
 
+  if (!integer && (number > 1e12 || Math.abs(number * 100 - Math.round(number * 100)) > 0.000001)) {
+    throw new Error(`${label} debe tener hasta dos decimales y ser menor o igual a 1 billón.`)
+  }
+
   return number
 }
 

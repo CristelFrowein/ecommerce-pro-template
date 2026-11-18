@@ -19,7 +19,9 @@ const titleSuffix = String(
   storeConfig.seo?.titleSuffix || ""
 ).trim()
 
-document.title = titleSuffix
+const hasProductMetadata = Boolean(document.querySelector('meta[property="og:type"][content="product"]'))
+
+if (!hasProductMetadata) document.title = titleSuffix
   ? `${storeName} | ${titleSuffix}`
   : storeName
 
@@ -30,7 +32,7 @@ const descriptionMeta = document.querySelector(
   'meta[name="description"]'
 )
 
-if (descriptionMeta) {
+if (descriptionMeta && !hasProductMetadata) {
   descriptionMeta.setAttribute(
     "content",
     String(storeConfig.description || "")

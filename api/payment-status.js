@@ -1,3 +1,5 @@
+import { releaseReservation } from "../server/reservations.js"
+import { reservationOnPayment } from "../server/inventory.js"
 import process from "node:process"
 
 import {
@@ -35,7 +37,7 @@ async function syncPayment(db, orderRef) {
 
       if (
         order.paymentMethod !== "mercadopago" ||
-        order.paymentMode !== "test" ||
+        order.paymentMode !== process.env.PAYMENT_MODE ||
         order.checkoutState !== "ready" ||
         !order.collectorId
       ) {
@@ -134,9 +136,10 @@ async function syncPayment(db, orderRef) {
 
         // Reutilizamos las mismas validaciones
         // que utiliza el webhook.
+        const order = snapshot.data()
         const changes = reconcilePayment(
           orderRef.id,
-          snapshot.data(),
+          order,
           payment,
           previous.exists
             ? previous.data()
@@ -144,6 +147,7 @@ async function syncPayment(db, orderRef) {
         )
 
         if (!changes) return
+        const reservation = await reservationOnPayment(db, transaction, order, changes.update)
 
         transaction.set(paymentRef, {
           ...changes.record,
@@ -154,6 +158,7 @@ async function syncPayment(db, orderRef) {
         if (changes.update) {
           transaction.update(orderRef, {
             ...changes.update,
+            ...reservation,
             paymentVerifiedAt:
               FieldValue.serverTimestamp(),
             paymentSyncSource:
@@ -209,16 +214,17 @@ export default async function handler(req, res) {
     if (
       !order ||
       order.paymentMethod !== "mercadopago" ||
-      order.paymentMode !== "test"
+      !["test", "live"].includes(order.paymentMode)
     ) {
       return res.status(404).json({
         message:
-          "No encontramos ese pedido de prueba."
+          "No encontramos ese pedido."
       })
     }
 
     try {
       await syncPayment(db, orderRef)
+      if (order.reservation?.expiresAtMs <= Date.now()) await releaseReservation(db, orderRef, "expired")
     } catch (syncError) {
       console.error(
         "Error al sincronizar pago con Mercado Pago:",
@@ -238,7 +244,7 @@ export default async function handler(req, res) {
     if (!updated.exists) {
       return res.status(404).json({
         message:
-          "No encontramos ese pedido de prueba."
+          "No encontramos ese pedido."
       })
     }
 
@@ -269,15 +275,12 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       orderId,
-      mode: "test",
+      mode: order.paymentMode,
       paymentStatus,
       verified,
       reviewRequired:
         order.paymentReviewRequired === true,
-      checkoutState:
-        order.checkoutState === "failed"
-          ? "failed"
-          : "registered"
+      checkoutState: ["failed", "expired"].includes(order.checkoutState) ? order.checkoutState : "registered"
     })
   } catch (error) {
     console.error(

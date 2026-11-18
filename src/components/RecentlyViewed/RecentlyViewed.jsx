@@ -54,6 +54,7 @@ function RecentlyViewedContent({ ids, onClear }) {
 
       responses.forEach(response => {
         if (response.status === "rejected") {
+          if (response.reason?.code === "permission-denied") return
           hasErrors = true
 
           console.error(

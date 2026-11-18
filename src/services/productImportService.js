@@ -1,3 +1,4 @@
+import { sameProductValue } from "../utils/commerce"
 import { collection, doc, getDocsFromServer, query, runTransaction, where } from "firebase/firestore"
 
 import { db } from "./firebase"
@@ -49,10 +50,7 @@ export function checkNewProductNames(rows, products) {
 }
 
 function sameValue(current, previous, field) {
-  if (field === "images") {
-    return JSON.stringify(current.images ?? []) === JSON.stringify(previous.images ?? [])
-  }
-  return current[field] === previous[field]
+  return sameProductValue(current[field], previous[field])
 }
 
 export async function saveImportedProducts(rows, category) {
@@ -75,9 +73,12 @@ export async function saveImportedProducts(rows, category) {
       }
 
       const current = snapshot.data()
-      const fields = new Set(["name", "category", ...Object.keys(row.changes)])
+      const fields = new Set(["name", "category", "heldUnits", ...Object.keys(row.changes)])
       if (!current || [...fields].some(field => !sameValue(current, row.existing, field))) {
         throw new Error(`Fila ${row.number}. El producto cambió en el catálogo. Volvé a comparar el archivo.`)
+      }
+      if (current.heldUnits > 0 && Object.hasOwn(row.changes, "variants")) {
+        throw new Error(`Fila ${row.number}. Hay unidades reservadas para estas variantes.`)
       }
       transaction.update(ref, row.changes)
     })

@@ -1,3 +1,4 @@
+import { postJson } from "./orderService"
 import { getSelections } from "../utils/cartUtils"
 
 const attemptKey = "mp-checkout-attempt"
@@ -45,15 +46,11 @@ function forgetAttempt(requestId) {
   }
 }
 
-export async function startDemoCheckout({
-  cart,
-  customer,
-  notes
-}) {
+export async function startCheckout({ cart, customer, notes, paymentMethod, deliveryMethod, postalCode, coupon, expectedTotal }) {
   const payload = {
     items: paymentItems(cart),
     customer,
-    notes
+    notes, paymentMethod, deliveryMethod, postalCode, coupon, expectedTotal
   }
 
   const digest = await crypto.subtle.digest(
@@ -81,6 +78,13 @@ export async function startDemoCheckout({
   }
 
   const orderId = `mp_${attempt.requestId}`
+  if (paymentMethod === "whatsapp") {
+    sessionStorage.setItem(attemptKey, JSON.stringify(attempt))
+    const order = await postJson("/api/create-checkout", { ...payload, requestId: attempt.requestId },
+      { signal: AbortSignal.timeout(30000) })
+    forgetAttempt(attempt.requestId)
+    return order
+  }
 
   try {
     sessionStorage.setItem(
@@ -141,7 +145,7 @@ export async function startDemoCheckout({
 
       if (
         statusResponse.ok &&
-        status?.mode === "test" &&
+        ["test", "live"].includes(status?.mode) &&
         status.orderId === orderId
       ) {
         if (
@@ -160,8 +164,6 @@ export async function startDemoCheckout({
         const finishedWithoutPayment =
           status.verified &&
           [
-            "rejected",
-            "cancelled",
             "refunded",
             "partially_refunded",
             "charged_back",
@@ -169,7 +171,7 @@ export async function startDemoCheckout({
           ].includes(status.paymentStatus)
 
         if (
-          status.checkoutState === "failed" ||
+          ["failed", "expired"].includes(status.checkoutState) ||
           finishedWithoutPayment
         ) {
           forgetAttempt(attempt.requestId)
@@ -178,21 +180,22 @@ export async function startDemoCheckout({
 
       throw new Error(
         data?.message ||
-          "No se pudo iniciar el pago de prueba. Intentá nuevamente."
+          "No se pudo iniciar el pago. Intentá nuevamente."
       )
     }
 
     if (
       !data ||
-      data.mode !== "test" ||
+      !["test", "live"].includes(data.mode) ||
       data.orderId !== orderId ||
       typeof data.checkoutUrl !== "string"
     ) {
       throw new Error(
-        "El servidor no devolvió un checkout de prueba válido."
+        "El servidor no devolvió un checkout válido."
       )
     }
 
+    if (data.trackingToken) sessionStorage.setItem(`track:${orderId}`, data.trackingToken)
     const url = new URL(data.checkoutUrl)
 
     const allowedHosts = [
@@ -252,4 +255,8 @@ export function finishPaidCheckout(
   } catch {
    //conservamos el carrito si no podemos verificar
   }
+}
+export function paymentTrackingToken(orderId) {
+  try { return sessionStorage.getItem(`track:${orderId}`) }
+  catch { return null }
 }
