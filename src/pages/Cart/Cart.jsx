@@ -26,27 +26,47 @@ function Cart() {
     removeFromCart,
     clearCart,
     cartTotal,
-    updateQuantity, refreshProducts
+    updateQuantity,
+    refreshProducts
   } = useCart()
 
   const [showCheckout, setShowCheckout] = useState(false)
+  const [checkingCart, setCheckingCart] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [confirmation, setConfirmation] = useState(null)
 
   const submittingRef = useRef(false)
+  const cartBusy = checkingCart || submitting
 
-  async function refreshCart() {
+  async function openCheckout() {
     if (submittingRef.current || !cart.length) return
     submittingRef.current = true
-    setSubmitting(true)
+    setCheckingCart(true)
+
     try {
       const ids = [...new Set(cart.map(item => item.productId))]
       const products = (await Promise.all(ids.map(getProduct))).filter(Boolean)
-      refreshProducts(products)
-      toast.info("Actualizamos precios, opciones y cantidades según el catálogo.")
+      const updatedCart = refreshProducts(products)
+      const changed = updatedCart.length !== cart.length || updatedCart.some((item, index) =>
+        item.cartItemId !== cart[index].cartItemId ||
+        item.price !== cart[index].price ||
+        item.quantity !== cart[index].quantity
+      )
+
+      if (changed) {
+        toast.info(updatedCart.length
+          ? "Actualizamos los precios o las cantidades disponibles. Revisá el carrito antes de continuar."
+          : "Los productos del carrito ya no están disponibles.")
+        return
+      }
+
+      setShowCheckout(true)
     } catch {
-      toast.error("No pudimos actualizar el carrito.")
-    } finally { submittingRef.current = false; setSubmitting(false) }
+      toast.error("No pudimos verificar el carrito. Intentá nuevamente.")
+    } finally {
+      submittingRef.current = false
+      setCheckingCart(false)
+    }
   }
 
   function changeQuantity(item, quantity) {
@@ -223,8 +243,6 @@ function Cart() {
         </div>
       )}
 
-      {cart.length > 0 && <button type="button" className="cart-continue-link" disabled={submitting} onClick={refreshCart}>Actualizar precios y stock</button>}
-
       {cart.map(item => {
         const productQuantity = cart
           .filter(
@@ -275,7 +293,7 @@ function Cart() {
               <button
                 type="button"
                 aria-label={`Reducir cantidad de ${item.name}`}
-                disabled={submitting}
+                disabled={cartBusy}
                 onClick={() =>
                   changeQuantity(
                     item,
@@ -292,7 +310,7 @@ function Cart() {
                 type="button"
                 aria-label={`Aumentar cantidad de ${item.name}`}
                 disabled={
-                  submitting || reachedStock
+                  cartBusy || reachedStock
                 }
                 title={
                   reachedStock
@@ -320,7 +338,7 @@ function Cart() {
               type="button"
               className="remove-item"
               aria-label={`Quitar ${item.name} del carrito`}
-              disabled={submitting}
+              disabled={cartBusy}
               onClick={() =>
                 removeFromCart(item.cartItemId)
               }
@@ -340,16 +358,16 @@ function Cart() {
           <button
             type="button"
             className="whatsapp-order"
-            disabled={submitting}
-            onClick={() => setShowCheckout(true)}
+            disabled={cartBusy}
+            onClick={openCheckout}
           >
-            Finalizar compra
+            {checkingCart ? "Verificando carrito…" : "Finalizar compra"}
           </button>
 
           <button
             type="button"
             className="clear-cart"
-            disabled={submitting}
+            disabled={cartBusy}
             onClick={clearCart}
           >
             Vaciar carrito

@@ -437,6 +437,7 @@ export function CartProvider({ children }) {
       return quantity > 0 ? [{ ...item, quantity }] : []
     })
     commit(adjusted)
+    return adjusted
   }
 
   const cartTotal = cart.reduce(
