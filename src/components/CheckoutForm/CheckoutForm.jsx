@@ -261,7 +261,7 @@ function CheckoutForm({
 
           <div className="input-group">
             <label htmlFor="checkout-delivery">Entrega</label>
-            <select id="checkout-delivery" name="deliveryMethod" value={deliveryMethod} onChange={handleChange} disabled={submitting || !methods}>
+            <select id="checkout-delivery" className="checkout-select" name="deliveryMethod" value={deliveryMethod} onChange={handleChange} disabled={submitting || !methods}>
               {!methods && <option value="">Cargando opciones…</option>}
               {methods?.pickup && <option value="pickup">{methods.pickupLabel}</option>}
               {methods?.shipping && <option value="shipping">Envío a domicilio</option>}
@@ -276,11 +276,15 @@ function CheckoutForm({
             <input id="checkout-coupon" name="coupon" maxLength={32} value={coupon} onChange={handleChange} disabled={submitting} />
           </div>
           {quoteError && <p role="alert">{quoteError}</p>}
-          {currentQuote && <p aria-live="polite">
-            Entrega {formatMoney(currentQuote.delivery.cost)} ·
-            {currentQuote.discount > 0 && ` Descuento ${formatMoney(currentQuote.discount)} ·`}
-            {" "}Total final <strong>{formatMoney(currentQuote.total)}</strong>
-          </p>}
+          {currentQuote && (
+            <dl className="checkout-quote" aria-live="polite">
+              <div><dt>Entrega</dt><dd>{formatMoney(currentQuote.delivery.cost)}</dd></div>
+              {currentQuote.discount > 0 && (
+                <div><dt>Descuento</dt><dd>−{formatMoney(currentQuote.discount)}</dd></div>
+              )}
+              <div className="checkout-quote-total"><dt>Total final</dt><dd>{formatMoney(currentQuote.total)}</dd></div>
+            </dl>
+          )}
 
           <div className="input-group">
             <label htmlFor="checkout-address">
@@ -324,7 +328,7 @@ function CheckoutForm({
             <select
               id="checkout-payment"
               name="paymentMethod"
-              className="checkout-payment-select"
+              className="checkout-select"
               value={form.paymentMethod}
               onChange={handleChange}
               disabled={submitting}

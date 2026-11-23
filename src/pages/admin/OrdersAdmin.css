@@ -580,8 +580,7 @@
   gap: 10px;
 }
 
-.complete-button,
-.cancel-order-button {
+.order-actions > :where(button) {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -595,6 +594,12 @@
   transition:
     background 0.18s ease,
     color 0.18s ease;
+}
+
+.order-actions > button:not(.complete-button, .cancel-order-button) {
+  border-color: var(--color-border, #e6dfd6);
+  background: #fff;
+  color: var(--color-primary-dark, #4f5443);
 }
 
 .complete-button {
@@ -703,6 +708,11 @@
     color: white;
   }
 
+  .order-actions > button:not(.complete-button, .cancel-order-button, :disabled):hover {
+    border-color: var(--color-primary, #6b705c);
+    background: var(--color-bg, #fafaf8);
+  }
+
   .orders-back:hover,
   .order-refresh-payment:not(:disabled):hover {
     background: var(--color-bg, #fafaf8);
@@ -784,8 +794,7 @@
     width: 100%;
   }
 
-  .complete-button,
-  .cancel-order-button {
+  .order-actions > button {
     width: 100%;
   }
 
@@ -812,8 +821,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .orders-stat,
-  .complete-button,
-  .cancel-order-button {
+  .order-actions > button {
     transition: none;
   }
 }

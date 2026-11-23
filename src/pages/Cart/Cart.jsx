@@ -203,8 +203,6 @@ function Cart() {
     <div className="cart-page container">
       <h1>Carrito</h1>
 
-      {confirmation && <p><Link to={confirmation.trackingUrl}>Ver seguimiento del pedido</Link></p>}
-
       {confirmation && (
         <section
           className="cart-summary"
@@ -225,18 +223,23 @@ function Cart() {
             siguiente enlace para coordinar el pedido.
           </p>
 
-          <a
-            href={confirmation.whatsappUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="whatsapp-order"
-          >
-            Abrir pedido en WhatsApp
-          </a>
+          <div className="cart-confirmation-actions">
+            <a
+              href={confirmation.whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="whatsapp-order"
+            >
+              Abrir pedido en WhatsApp
+            </a>
+            <Link className="cart-tracking-link" to={confirmation.trackingUrl}>
+              Ver seguimiento del pedido
+            </Link>
+          </div>
         </section>
       )}
 
-      {cart.length === 0 && (
+      {cart.length === 0 && !confirmation && (
         <div>
           <p>No hay productos en el carrito.</p>
           <Link to="/">Seguir comprando</Link>

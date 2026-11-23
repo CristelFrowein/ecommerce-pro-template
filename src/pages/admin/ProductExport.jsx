@@ -60,7 +60,7 @@ export default function ProductExport() {
         <option value="">Todas las categorías</option>
         {categories.map(item => <option key={item.id} value={item.slug}>{item.name}</option>)}
       </select></label>
-      <button>{busy ? "Preparando…" : "Descargar Excel"}</button>
+      <button type="submit">{busy ? "Preparando…" : "Descargar Excel"}</button>
     </fieldset></form>
     {status && <p role="status">{status}</p>}
     {error && <p role="alert">{error}</p>}

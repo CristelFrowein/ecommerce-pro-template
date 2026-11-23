@@ -108,7 +108,7 @@ export default function CommerceAdmin({ section }) {
                 onChange={event => update(row.id, { active: event.target.checked })} /> Cupón activo</label>
             </>}
           </div>
-          <button type="button" onClick={() => setSettings({ ...settings, [field]: rows.filter(item => item.id !== row.id) })}>Quitar</button>
+          <button type="button" className="commerce-admin-remove" onClick={() => setSettings({ ...settings, [field]: rows.filter(item => item.id !== row.id) })}>Quitar</button>
         </div>)}
         <div className="commerce-admin-actions">
           <button type="button" onClick={() => setSettings({ ...settings, [field]: [...rows, field === "zones" ? blankZone() : blankCoupon()] })}>
